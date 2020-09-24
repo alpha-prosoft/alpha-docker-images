@@ -1,0 +1,124 @@
+# syntax=docker/dockerfile:experimental
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-base-img:b${BUILD_ID}
+
+ARG BUILD_ID
+ENV BUILD_ID ${BUILD_ID}
+RUN echo "Building common: ${BUILD_ID}"
+
+
+RUN groupadd --gid 999 docker
+
+RUN apt-get update &&\
+    apt-get install -y build-essential \
+                       ca-certificates \
+                       libz-dev \
+                       python3-pip \
+                       virtualenv \
+                       unzip \
+                       jq \
+                       ssh \
+                       zip \
+                       curl \
+                       maven \
+                       git \
+                       rlwrap \
+                       docker.io &&\
+    apt-get clean
+
+
+RUN usermod -aG docker build
+
+RUN pip3 install --upgrade \
+          ansible \
+          jinja2 \
+          yq \
+          boto \
+          boto3 \
+          botocore \
+          psycopg2-binary
+
+
+RUN set -e && yq --version
+
+RUN set -e &&\
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
+    unzip awscliv2.zip &&\
+    ./aws/install
+
+RUN aws --version
+
+COPY ext/gitconfig /home/build/.gitconfig
+
+# Install GraalVM
+ENV GRAAL_VM_URL "https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.1.0/graalvm-ce-java11-linux-amd64-20.1.0.tar.gz"
+RUN curl -o graal-vm.tar.gz -L  "${GRAAL_VM_URL}" &&\
+    tar -xvf graal-vm.tar.gz -C /opt  &&\
+    rm -rf graal-vm.tar.gz &&\
+    ls -la /opt &&\
+    ln -s "/opt/$(basename /opt/graalvm*)" /opt/graalvm
+
+ENV GRAALVM_HOME /opt/graalvm/
+ENV PATH $PATH:"/opt/graalvm/bin"
+
+
+COPY --chown=2035:2035 ext/ssh-config  /home/build/.ssh/config
+
+RUN chmod 700 /home/build/.ssh/config
+
+
+
+ENV GRAALVM_NATIVE_IMAGE_URL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.1.0/native-image-installable-svm-java11-linux-amd64-20.1.0.jar
+RUN mkdir /tmp/graalvm/ &&\
+    curl -o /tmp/graalvm-native-image.jar ${GRAALVM_NATIVE_IMAGE_URL} -k -L &&\
+    gu -L install /tmp/graalvm-native-image.jar &&\
+    rm -rf /tmp/graalvm-native-image.jar
+
+
+# Install clojure
+RUN curl -O https://download.clojure.org/install/linux-install-1.10.1.492.sh &&\
+    chmod +x linux-install-1.10.1.492.sh &&\
+    ./linux-install-1.10.1.492.sh 
+
+# Install leiningen
+RUN mkdir /opt/bin &&\
+    curl -o /opt/bin/lein https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein &&\
+    chmod +x /opt/bin/lein &&\
+    /opt/bin/lein
+
+ENV PATH "${PATH}:/opt/bin/lein"
+
+RUN curl -s https://raw.githubusercontent.com/borkdude/jet/master/install > jet.sh &&\
+     chmod +x jet.sh &&\
+     ./jet.sh
+
+RUN apt-get update &&\
+    apt-get install -y git-extras &&\
+    apt-get clean
+
+# Install nodejs
+RUN apt-get install -y nodejs &&\
+    node --version &&\
+    node -v &&\
+    npm -v
+
+
+COPY --chown=build:build ext/settings.xml /home/build/.m2/settings.xml
+
+RUN mkdir /dist &&\
+    chown build:build /dist -R
+
+
+# Finalize
+USER build
+WORKDIR /home/build
+
+# Setup trust
+RUN mkdir -p /home/build/.ssh &&\
+    ssh-keyscan -p 22 github.com >> /home/build/.ssh/known_hosts
+
+
+

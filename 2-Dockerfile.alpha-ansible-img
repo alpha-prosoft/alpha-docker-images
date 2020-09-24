@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:experimental
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-common-img:b${BUILD_ID}
+
+ARG BUILD_ID
+ENV BUILD_ID ${BUILD_ID}
+RUN echo "Building ansible: ${BUILD_ID}"
+
+
+ONBUILD ARG PROJECT_NAME 
+ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+ONBUILD RUN echo "Building ${PROJECT_NAME}"
+
+ONBUILD COPY --chown=2035:2035 ansible ansible
+ONBUILD RUN  --mount=type=ssh,mode=741,uid=2035,gid=2035 set -ex &&\
+  if [ -f "ansible/build/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
+  fi &&\
+  if [ -f "ansible/deploy/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
+  fi &&\
+  if [ -d "ansible/deploy" ]; then \
+    mkdir -p /dist/ansible/deploy; \
+    cp -r ansible/deploy/* /dist/ansible/deploy; \
+  fi 
+ 
+SHELL ["/bin/bash","-c"]
+
+ONBUILD RUN set -ex &&\
+  if [ -f "ansible/build/build.yml" ]; then \
+    mkdir ansible/build/group_vars &&\
+    echo '{"params" : \
+             {"BuildId" : "'${BUILD_ID}'", \
+              "AWS_DEFAULT_REGION" : "eu-west-1", \
+              "ProjectName" : "'${PROJECT_NAME}'"}}' \
+        > ansible/build/group_vars/all.json &&\
+    ansible-playbook \
+      -i ansible/build/inventory \
+      -${ANSIBLE_LOG_LEVEL:-vvv} \
+      ansible/build/build.yml; \
+  fi
+ 
+
+COPY --chown=2035:2035 ext/deploy.sh /dist/deploy.sh

@@ -1,0 +1,119 @@
+# syntax=docker/dockerfile:experimental
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-common-img:b${BUILD_ID}
+
+ONBUILD ARG BUILD_RAM=31
+ONBUILD ARG PROJECT_NAME 
+ONBUILD ARG BUILD_ID 
+ONBUILD ARG DEPLOY_TARGET
+ONBUILD ARG MAIN_CLASS
+
+ONBUILD ARG ROOT_DIR
+ONBUILD ENV ROOT_DIR_E ${ROOT_DIR:-"./"}
+
+ONBUILD RUN echo "Building in ${ROOT_DIR}:${ROOT_DIR_E}"
+ONBUILD RUN echo "Project name ${PROJECT_NAME}"
+
+ONBUILD COPY --chown=build:build ansible ansible
+ONBUILD RUN --mount=type=ssh,mode=741,uid=2035,gid=2035 set -ex &&\
+  ls -la $SSH_AUTH_SOCK &&\
+  ssh-add -l &&\
+  if [ -f "ansible/deploy/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
+  fi &&\
+  cp -r ansible/* /dist/ &&\
+  chmod 777 /dist -R
+
+COPY --chown=build:build ext/deploy.sh /dist/deploy.sh
+COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
+COPY --chown=build:build ext/reflectconfig.json /dist/reflectconfig.json
+
+
+COPY --chown=build:build ext/bootstrap bootstrap
+RUN chmod +x bootstrap
+
+COPY --chown=build:build ext/merge.clj merge.clj
+
+
+ONBUILD RUN sed -i 's/${MAIN_CLASS}/'${MAIN_CLASS}'/g' /home/build/.clojure/deps.edn
+
+ONBUILD RUN clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' -e :ok 
+ONBUILD RUN clj -Sdeps '{:deps {org.clojure/test.check {:mvn/version "1.0.0"}} }' -e :ok 
+ONBUILD RUN clj -Sdeps '{:deps {lambdaisland/kaocha {:mvn/version "0.0-601"}}}' -e :ok 
+
+ONBUILD RUN clj -Sdeps '{:deps {borkdude/clj-reflector-graal-java11-fix {:mvn/version "0.0.1-graalvm-19.3.1-alpha.2"}}}' -e :ok 
+
+ONBUILD RUN cat /home/build/.clojure/deps.edn
+ONBUILD COPY --chown=build:build deps.edn deps.edn
+
+COPY --chown=build:build ext/deps.edn /home/build/.clojure/deps.edn
+COPY --chown=build:build ext/DEV.edn /home/build/.clojure/DEV.edn
+COPY --chown=build:build ext/PROD.edn /home/build/.clojure/PROD.edn
+
+ONBUILD RUN clj -e :ok
+
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}src" src
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}api" api
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}schema" schema
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}resources" resources
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test 
+
+
+ONBUILD RUN set -e && clj -A:test:runner
+
+
+ONBUILD RUN clj merge.clj
+ONBUILD RUN clj -Stree
+ONBUILD RUN cat deps-temp.edn 
+
+ONBUILD RUN set -e &&\
+            mkdir -p /dist/release-libs/ &&\
+            if [[ -d "api" ]]; then \
+              cd api; \
+              if [[ -f "deps.edn" ]]; then \
+                clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
+                  -m cambada.jar \
+                  --app-version "1.0.b${BUILD_ID}" \
+                  --app-artifact-id "${PROJECT_NAME}" \
+                  --copy-source \
+                  -o /dist/release-libs/; \
+                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.pom.xml"; \
+               fi \
+            fi &&\
+            ls -la /dist/release-libs/
+
+ONBUILD RUN set -e && clojure -Sverbose -A:native-image \
+     --image-name ${PROJECT_NAME} \
+     --out target \
+        -m ${MAIN_CLASS} \
+        -d deps-temp.edn \
+        --graalvm-opt -no-server \
+        --graalvm-opt -enable-https \
+        --graalvm-opt  J-Xms${BUILD_RAM}g \
+        --graalvm-opt  J-Xmx${BUILD_RAM}g \
+        --graalvm-opt -enable-url-protocols=https \
+    --graalvm-opt -enable-all-security-services \
+        --graalvm-opt H:+TraceClassInitialization \
+        --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
+        --graalvm-opt -report-unsupported-elements-at-runtime \
+        --graalvm-opt H:+ReportExceptionStackTraces \
+        --graalvm-opt H:IncludeResources='resources/*' \
+        --graalvm-opt -initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder \
+    --graalvm-opt -initialize-at-build-time=org.postgresql.Driver \
+        --graalvm-opt -initialize-at-build-time=org.postgresql.util.SharedTimer \
+        --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
+        --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
+        --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient
+
+ONBUILD RUN cp bootstrap target/ &&\
+    cd target &&\
+    mv ${PROJECT_NAME} lambda_function &&\
+    chmod +x lambda_function &&\
+    zip /dist/${PROJECT_NAME}.zip lambda_function &&\
+    zip /dist/${PROJECT_NAME}.zip bootstrap &&\
+    mv /dist/${PROJECT_NAME}.zip /dist/${PROJECT_NAME}.jar
+
+ONBUILD RUN ls -la /dist/ 

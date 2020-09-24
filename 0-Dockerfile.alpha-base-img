@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:experimental
+
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ubuntu:20.04
+
+WORKDIR /root
+ENV DEBIAN_FRONTEND noninteractive
+
+
+RUN adduser --system --group --uid 2035 build
+
+
+RUN apt-get update &&\
+    apt-get install -y unzip \
+                       jq \
+                       gpg \
+                       gpg \
+                       zip \
+                       vim \
+                       curl &&\
+    apt-get clean
+
+
+
+RUN ln -fs /usr/share/zoneinfo/Europe/Vienna  /etc/localtime
+
