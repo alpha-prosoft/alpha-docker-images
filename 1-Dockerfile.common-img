@@ -3,10 +3,9 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-base-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
 
 ARG BUILD_ID
-ENV BUILD_ID ${BUILD_ID}
 RUN echo "Building common: ${BUILD_ID}"
 
 
@@ -65,7 +64,7 @@ ENV GRAALVM_HOME /opt/graalvm/
 ENV PATH $PATH:"/opt/graalvm/bin"
 
 
-COPY --chown=2035:2035 ext/ssh-config  /home/build/.ssh/config
+COPY --chown=2025:2024 ext/ssh-config  /home/build/.ssh/config
 
 RUN chmod 700 /home/build/.ssh/config
 
@@ -109,6 +108,7 @@ RUN apt-get install -y nodejs &&\
 COPY --chown=build:build ext/settings.xml /home/build/.m2/settings.xml
 
 RUN mkdir /dist &&\
+    mkdir /dist/release-libs &&\
     chown build:build /dist -R
 
 
@@ -120,5 +120,9 @@ WORKDIR /home/build
 RUN mkdir -p /home/build/.ssh &&\
     ssh-keyscan -p 22 github.com >> /home/build/.ssh/known_hosts
 
+
+
+COPY --chown=2025:2024 ext/deploy.sh /dist/deploy.sh
+COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
 
 

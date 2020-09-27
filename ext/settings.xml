@@ -1,3 +1,10 @@
 <settings>
+  <servers>
+    <server>
+      <id>artifacts</id>
+      <username>${artifacts.username}</username>
+      <password>${artifacts.password}</password>
+    </server>
+  </servers>
 </settings>
 

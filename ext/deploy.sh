@@ -170,6 +170,8 @@ params=$(echo "${target_access}" | \
 	  "Priority" : "'${priority}'",
           "PrivateHostedZoneName" : "'${HOSTED_ZONE_NAME%.*}'",
           "PrivateHostedZoneId" : "'${HOSTED_ZONE_ID##*/}'",
+          "PublicHostedZoneName" : "'${HOSTED_ZONE_NAME%.*}'",
+          "PublicHostedZoneId" : "'${HOSTED_ZONE_ID##*/}'",
           "EnvironmentNameUpper" : "'${EnvironmentNameUpper}'",
           "EnvironmentNameLower" : "'${EnvironmentNameUpper,,}'",
           "DeploymentS3BucketName" : "'${TargetAccountId}-${EnvironmentNameUpper,,}-deployment'",

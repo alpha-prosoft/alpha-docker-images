@@ -3,11 +3,12 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-common-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
+
+ONBUILD ARG PROJECT_NAME 
+ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 
 ONBUILD ARG BUILD_RAM=31
-ONBUILD ARG PROJECT_NAME 
-ONBUILD ARG BUILD_ID 
 ONBUILD ARG DEPLOY_TARGET
 ONBUILD ARG MAIN_CLASS
 
@@ -17,20 +18,7 @@ ONBUILD ENV ROOT_DIR_E ${ROOT_DIR:-"./"}
 ONBUILD RUN echo "Building in ${ROOT_DIR}:${ROOT_DIR_E}"
 ONBUILD RUN echo "Project name ${PROJECT_NAME}"
 
-ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN --mount=type=ssh,mode=741,uid=2035,gid=2035 set -ex &&\
-  ls -la $SSH_AUTH_SOCK &&\
-  ssh-add -l &&\
-  if [ -f "ansible/deploy/requirements.yml" ]; then \
-    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
-  fi &&\
-  cp -r ansible/* /dist/ &&\
-  chmod 777 /dist -R
-
-COPY --chown=build:build ext/deploy.sh /dist/deploy.sh
-COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
 COPY --chown=build:build ext/reflectconfig.json /dist/reflectconfig.json
-
 
 COPY --chown=build:build ext/bootstrap bootstrap
 RUN chmod +x bootstrap
@@ -76,11 +64,11 @@ ONBUILD RUN set -e &&\
               if [[ -f "deps.edn" ]]; then \
                 clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
                   -m cambada.jar \
-                  --app-version "1.0.b${BUILD_ID}" \
+                  --app-version "1.0.BUILD_ID" \
                   --app-artifact-id "${PROJECT_NAME}" \
                   --copy-source \
                   -o /dist/release-libs/; \
-                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.pom.xml"; \
+                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.bBUILD_ID.pom.xml"; \
                fi \
             fi &&\
             ls -la /dist/release-libs/
@@ -117,3 +105,38 @@ ONBUILD RUN cp bootstrap target/ &&\
     mv /dist/${PROJECT_NAME}.zip /dist/${PROJECT_NAME}.jar
 
 ONBUILD RUN ls -la /dist/ 
+
+ONBUILD ARG BUILD_ID 
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+
+# BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
+
+ONBUILD COPY --chown=2025:2024 ansible ansible
+ONBUILD RUN  --mount=type=secret,id=mysecret,mode=741,uid=2025,gid=2024 set -ex &&\
+  if [ -f "ansible/build/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
+  fi &&\
+  if [ -f "ansible/deploy/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
+  fi &&\
+  if [ -d "ansible/deploy" ]; then \
+    mkdir -p /dist/ansible/deploy; \
+    cp -r ansible/deploy/* /dist/ansible/deploy; \
+  fi 
+ 
+SHELL ["/bin/bash","-c"]
+
+ONBUILD RUN set -ex &&\
+  if [ -f "ansible/build/build.yml" ]; then \
+    mkdir ansible/build/group_vars &&\
+    echo '{"params" : \
+             {"BuildId" : "'${BUILD_ID}'", \
+              "AWS_DEFAULT_REGION" : "eu-west-1", \
+              "ProjectName" : "'${PROJECT_NAME}'"}}' \
+        > ansible/build/group_vars/all.json &&\
+    ansible-playbook \
+      -i ansible/build/inventory \
+      -${ANSIBLE_LOG_LEVEL:-vvv} \
+      ansible/build/build.yml; \
+  fi
+ 

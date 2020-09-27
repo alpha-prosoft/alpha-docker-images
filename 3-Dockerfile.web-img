@@ -3,7 +3,7 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/alpha-common-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
 
 USER root
 
@@ -23,6 +23,8 @@ RUN LATEST_CRHOMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/L
 
 ENV CHROMEDRIVER /usr/local/bin/chromedriver
 
+RUN npm install -g shadow-cljs karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
+
 # set display port to avoid crash
 ENV DISPLAY=:99
 
@@ -32,25 +34,35 @@ ENV PATH $PATH:"$GRAALVM_HOME/languages/js/bin"
 RUN id && pwd && \
      ls -la
 
-ONBUILD ARG GIT_USERNAME
-ONBUILD ARG GIT_PASSOWRD
 
+# Onbuild part
 ONBUILD ARG PROJECT_NAME
+
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 
 
-ONBUILD COPY --chown=1035:1035 ansible ansible
-ONBUILD RUN --mount=type=ssh,mode=741,uid=1035,gid=1035 set -ex &&\
-  id &&\
-  ls -la .ssh &&\
-  env &&\
-  ls -la $SSH_AUTH_SOCK &&\
-  ssh-add -l &&\
-  if [ -f "ansible/deploy/requirements.yml" ]; then \
-    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
-  fi &&\
-  cp -r ansible/* /dist/ &&\
-  chmod 777 /dist -R
+ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
+ONBUILD COPY --chown=build:build package.json package.json
+ONBUILD COPY --chown=build:build package-lock.json package-lock.json
+ONBUILD COPY --chown=build:build deps.edn deps.edn
 
-COPY --chown=2035:2035 ext/deploy.sh /dist/deploy.sh
+
+ONBUILD RUN mkdir -p /dist/s3
+ONBUILD RUN npm install
+ONBUILD RUN npx shadow-cljs classpath
+
+ONBUILD COPY --chown=build:build resources resources
+ONBUILD COPY --chown=build:build src src
+
+
+ONBUILD RUN set -e && clojure -A:test:runner
+ONBUILD RUN set -e && npx shadow-cljs release app
+
+ONBUILD RUN cp -r resources/public/* /dist/s3/
+
+ONBUILD ARG BUILD_ID
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+ONBUILD RUN sed -i 's/version=1/version='${BUILD_ID}'/g' /dist/s3/index.html
+
+ONBUILD RUN ls -la /dist
 

@@ -10,7 +10,8 @@ WORKDIR /root
 ENV DEBIAN_FRONTEND noninteractive
 
 
-RUN adduser --system --group --uid 2035 build
+RUN groupadd --gid 2024 build &&\
+    adduser --system --gid 2024 --uid 2025 build
 
 
 RUN apt-get update &&\

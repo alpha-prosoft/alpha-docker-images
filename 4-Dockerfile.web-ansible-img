@@ -1,0 +1,99 @@
+# syntax=docker/dockerfile:experimental
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
+
+USER root
+
+RUN curl -k -q -o google-chrome-stable_current_amd64.deb  https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&\
+    apt-get install -y ./google-chrome-stable_current_amd64.deb
+
+# install chromedriver
+RUN apt-get install -yqq unzip
+
+# install imagemagick
+RUN apt install -yqq imagemagick
+
+RUN LATEST_CRHOMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) &&\
+    curl -k -q -o /tmp/chromedriver.zip "http://chromedriver.storage.googleapis.com/${LATEST_CRHOMEDRIVER_VERSION}/chromedriver_linux64.zip" &&\
+    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/  &&\
+	rm -rf /tmp/chromedriver.zip
+
+ENV CHROMEDRIVER /usr/local/bin/chromedriver
+
+RUN npm install -g shadow-cljs karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
+
+# set display port to avoid crash
+ENV DISPLAY=:99
+
+USER build
+ENV PATH $PATH:"$GRAALVM_HOME/languages/js/bin"
+
+RUN id && pwd && \
+     ls -la
+
+
+# Onbuild part
+ONBUILD ARG PROJECT_NAME
+
+ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+
+
+ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
+ONBUILD COPY --chown=build:build package.json package.json
+ONBUILD COPY --chown=build:build package-lock.json package-lock.json
+ONBUILD COPY --chown=build:build deps.edn deps.edn
+
+
+ONBUILD RUN mkdir -p /dist/s3
+ONBUILD RUN npm install
+ONBUILD RUN npx shadow-cljs classpath
+
+ONBUILD COPY --chown=build:build resources resources
+ONBUILD COPY --chown=build:build src src
+
+
+ONBUILD RUN set -e && clojure -A:test:runner
+ONBUILD RUN set -e && npx shadow-cljs release app
+
+ONBUILD RUN cp -r resources/public/* /dist/s3/
+
+ONBUILD ARG BUILD_ID
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+ONBUILD RUN sed -i 's/version=1/version='${BUILD_ID}'/g' /dist/s3/index.html
+
+ONBUILD RUN ls -la /dist
+
+# BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
+
+ONBUILD COPY --chown=2025:2024 ansible ansible
+ONBUILD RUN  --mount=type=secret,id=mysecret,mode=741,uid=2025,gid=2024 set -ex &&\
+  if [ -f "ansible/build/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
+  fi &&\
+  if [ -f "ansible/deploy/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
+  fi &&\
+  if [ -d "ansible/deploy" ]; then \
+    mkdir -p /dist/ansible/deploy; \
+    cp -r ansible/deploy/* /dist/ansible/deploy; \
+  fi 
+ 
+SHELL ["/bin/bash","-c"]
+
+ONBUILD RUN set -ex &&\
+  if [ -f "ansible/build/build.yml" ]; then \
+    mkdir ansible/build/group_vars &&\
+    echo '{"params" : \
+             {"BuildId" : "'${BUILD_ID}'", \
+              "AWS_DEFAULT_REGION" : "eu-west-1", \
+              "ProjectName" : "'${PROJECT_NAME}'"}}' \
+        > ansible/build/group_vars/all.json &&\
+    ansible-playbook \
+      -i ansible/build/inventory \
+      -${ANSIBLE_LOG_LEVEL:-vvv} \
+      ansible/build/build.yml; \
+  fi
+ 
