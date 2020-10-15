@@ -69,7 +69,7 @@ ONBUILD RUN ls -la /dist
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 
 ONBUILD COPY --chown=2025:2024 ansible ansible
-ONBUILD RUN  --mount=type=secret,id=mysecret,mode=741,uid=2025,gid=2024 set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
   if [ -f "ansible/build/requirements.yml" ]; then \
     ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
   fi &&\
