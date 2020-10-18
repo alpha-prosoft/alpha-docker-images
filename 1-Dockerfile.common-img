@@ -112,6 +112,8 @@ RUN mkdir /dist &&\
     chown build:build /dist -R
 
 
+
+
 # Finalize
 USER build
 WORKDIR /home/build

@@ -23,7 +23,7 @@ RUN LATEST_CRHOMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/L
 
 ENV CHROMEDRIVER /usr/local/bin/chromedriver
 
-RUN npm install -g shadow-cljs karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
+RUN npm install -g shadow-cljs@2.11.5 karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
 
 # set display port to avoid crash
 ENV DISPLAY=:99
@@ -37,9 +37,7 @@ RUN id && pwd && \
 
 # Onbuild part
 ONBUILD ARG PROJECT_NAME
-
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
-
 
 ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
 ONBUILD COPY --chown=build:build package.json package.json
@@ -49,20 +47,20 @@ ONBUILD COPY --chown=build:build deps.edn deps.edn
 
 ONBUILD RUN mkdir -p /dist/s3
 ONBUILD RUN npm install
-ONBUILD RUN npx shadow-cljs classpath
+ONBUILD RUN shadow-cljs classpath
 
 ONBUILD COPY --chown=build:build resources resources
 ONBUILD COPY --chown=build:build src src
 
 
 ONBUILD RUN set -e && clojure -A:test:runner
-ONBUILD RUN set -e && npx shadow-cljs release app
+ONBUILD RUN set -e && shadow-cljs release app
 
 ONBUILD RUN cp -r resources/public/* /dist/s3/
+ONBUILD RUN cp resources/dev/template/index.html /dist/s3/index.html.template
 
 ONBUILD ARG BUILD_ID
 ONBUILD ENV BUILD_ID ${BUILD_ID}
-ONBUILD RUN sed -i 's/version=1/version='${BUILD_ID}'/g' /dist/s3/index.html
 
 ONBUILD RUN ls -la /dist
 
