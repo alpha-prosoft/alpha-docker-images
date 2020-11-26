@@ -9,8 +9,8 @@
     (when (some identity vs)
       (reduce #(rec-merge %1 %2) v vs))))
 
-(spit "deps-temp.edn"
+(spit "deps.edn"
  (with-out-str 
-   (pprint (deep-merge (read-string (slurp "deps.edn"))
-                       (read-string (slurp (str "/home/build/.clojure/deps.edn")))
+   (pprint (deep-merge (read-string (slurp "deps-temp.edn"))
+                       (read-string (slurp (str "/home/build/.clojure/" (System/getenv "DEPLOY_TARGET")  ".edn")))
                        (read-string (slurp "/home/build/.clojure/deps.edn"))))))

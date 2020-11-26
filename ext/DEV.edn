@@ -1,1 +1,3 @@
-{}
+{:mvn/repos
+ {"dev" {:url "https://alphaprosoft.jfrog.io/artifactory/dev"}}}
+

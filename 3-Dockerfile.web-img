@@ -58,6 +58,7 @@ ONBUILD RUN set -e && shadow-cljs release app
 
 ONBUILD RUN cp -r resources/public/* /dist/s3/
 ONBUILD RUN cp resources/dev/template/index.html /dist/s3/index.html.template
+ONBUILD RUN cp resources/dev/template/mobile.html /dist/s3/mobile.html.template
 
 ONBUILD ARG BUILD_ID
 ONBUILD ENV BUILD_ID ${BUILD_ID}
