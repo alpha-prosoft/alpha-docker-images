@@ -52,16 +52,18 @@ ONBUILD RUN shadow-cljs classpath
 ONBUILD COPY --chown=build:build resources resources
 ONBUILD COPY --chown=build:build src src
 
-
 ONBUILD RUN set -e && clojure -A:test:runner
 ONBUILD RUN set -e && shadow-cljs release app
 
-ONBUILD RUN cp -r resources/public/* /dist/s3/
-ONBUILD RUN cp resources/dev/template/index.html /dist/s3/index.html.template
-ONBUILD RUN cp resources/dev/template/mobile.html /dist/s3/mobile.html.template
+ONBUILD RUN cp -r resources/public/* /dist/s3/ &&\
+            mkdir -p resources/dev/template/ &&\
+            mkdir -p /dist/template &&\
+            cp resources/dev/template/* /dist/template/
 
 ONBUILD ARG BUILD_ID
 ONBUILD ENV BUILD_ID ${BUILD_ID}
+
+ONBUILD RUN npm version 1.0.${BUILD_ID}
 
 ONBUILD RUN ls -la /dist
 
