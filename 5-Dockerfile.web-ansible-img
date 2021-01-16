@@ -3,37 +3,7 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
-
-USER root
-
-RUN curl -k -q -o google-chrome-stable_current_amd64.deb  https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&\
-    apt-get install -y ./google-chrome-stable_current_amd64.deb
-
-# install chromedriver
-RUN apt-get install -yqq unzip
-
-# install imagemagick
-RUN apt install -yqq imagemagick
-
-RUN LATEST_CRHOMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) &&\
-    curl -k -q -o /tmp/chromedriver.zip "http://chromedriver.storage.googleapis.com/${LATEST_CRHOMEDRIVER_VERSION}/chromedriver_linux64.zip" &&\
-    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/  &&\
-	rm -rf /tmp/chromedriver.zip
-
-ENV CHROMEDRIVER /usr/local/bin/chromedriver
-
-RUN npm install -g shadow-cljs@2.11.5 karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
-
-# set display port to avoid crash
-ENV DISPLAY=:99
-
-USER build
-ENV PATH $PATH:"$GRAALVM_HOME/languages/js/bin"
-
-RUN id && pwd && \
-     ls -la
-
+FROM ${DOCKER_URL}/${DOCKER_ORG}/web-base-img:b${BUILD_ID}
 
 # Onbuild part
 ONBUILD ARG PROJECT_NAME

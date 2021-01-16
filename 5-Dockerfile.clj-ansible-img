@@ -89,17 +89,16 @@ ONBUILD RUN set -e && clojure -Sverbose -A:native-image \
         --graalvm-opt  J-Xmx${BUILD_RAM}g \
         --graalvm-opt -enable-url-protocols=https \
         --graalvm-opt -enable-all-security-services \
-        --graalvm-opt H:+TraceClassInitialization \
         --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
         --graalvm-opt -report-unsupported-elements-at-runtime \
         --graalvm-opt H:+ReportExceptionStackTraces \
         --graalvm-opt H:IncludeResources='resources/*' \
-        --graalvm-opt -initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder \
         --graalvm-opt -initialize-at-build-time=org.postgresql.Driver \
         --graalvm-opt -initialize-at-build-time=org.postgresql.util.SharedTimer \
         --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
         --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
-        --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient
+        --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient \
+        || { cat /tmp/clojure-*.edn; exit 1; }
 
 ONBUILD RUN cp bootstrap target/ &&\
     cd target &&\
@@ -114,3 +113,34 @@ ONBUILD RUN ls -la /dist/
 ONBUILD ARG BUILD_ID 
 ONBUILD ENV BUILD_ID ${BUILD_ID}
 
+# BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
+
+ONBUILD COPY --chown=2025:2024 ansible ansible
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
+  if [ -f "ansible/build/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
+  fi &&\
+  if [ -f "ansible/deploy/requirements.yml" ]; then \
+    ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
+  fi &&\
+  if [ -d "ansible/deploy" ]; then \
+    mkdir -p /dist/ansible/deploy; \
+    cp -r ansible/deploy/* /dist/ansible/deploy; \
+  fi 
+ 
+SHELL ["/bin/bash","-c"]
+
+ONBUILD RUN set -ex &&\
+  if [ -f "ansible/build/build.yml" ]; then \
+    mkdir ansible/build/group_vars &&\
+    echo '{"params" : \
+             {"BuildId" : "'${BUILD_ID}'", \
+              "AWS_DEFAULT_REGION" : "eu-west-1", \
+              "ProjectName" : "'${PROJECT_NAME}'"}}' \
+        > ansible/build/group_vars/all.json &&\
+    ansible-playbook \
+      -i ansible/build/inventory \
+      -${ANSIBLE_LOG_LEVEL:-vvv} \
+      ansible/build/build.yml; \
+  fi
+ 

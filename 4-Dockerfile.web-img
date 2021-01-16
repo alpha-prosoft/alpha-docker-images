@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:experimental
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/web-base-img:b${BUILD_ID}
+
+# Onbuild part
+ONBUILD ARG PROJECT_NAME
+ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+
+ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
+ONBUILD COPY --chown=build:build package.json package.json
+ONBUILD COPY --chown=build:build package-lock.json package-lock.json
+ONBUILD COPY --chown=build:build deps.edn deps.edn
+
+
+ONBUILD RUN mkdir -p /dist/s3
+ONBUILD RUN npm install
+ONBUILD RUN shadow-cljs classpath
+
+ONBUILD COPY --chown=build:build resources resources
+ONBUILD COPY --chown=build:build src src
+
+ONBUILD RUN set -e && clojure -A:test:runner
+ONBUILD RUN set -e && shadow-cljs release app
+
+ONBUILD RUN cp -r resources/public/* /dist/s3/ &&\
+            mkdir -p resources/dev/template/ &&\
+            mkdir -p /dist/template &&\
+            cp resources/dev/template/* /dist/template/
+
+ONBUILD ARG BUILD_ID
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+
+ONBUILD RUN npm version 1.0.${BUILD_ID}
+
+ONBUILD RUN ls -la /dist
+

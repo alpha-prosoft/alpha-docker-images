@@ -1,5 +1,5 @@
 {:mvn/repos {}
- :deps {borkdude/clj-reflector-graal-java11-fix {:mvn/version "0.0.1-graalvm-20.1.0"
+ :deps {borkdude/clj-reflector-graal-java11-fix {:mvn/version "0.0.1-graalvm-20.3.0"
                                                       :exclusions  [org.graalvm.nativeimage/svm-hosted-native-linux-amd64
                                                                     org.graalvm.nativeimage/svm-hosted-native-darwin-amd64
                                                                     org.graalvm.nativeimage/svm-hosted-native-windows-amd64
@@ -7,7 +7,7 @@
                                                                     org.graalvm.truffle/truffle-nfi-native-linux-amd64
                                                                     org.graalvm.truffle/truffle-nfi-native-linux-aarch64
                                                                     org.graalvm.truffle/truffle-nfi-native-darwin-amd64]}}
- :aliases   {:native-image {:extra-deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}
+ :aliases   {:native-image {:extra-deps {luchiniatwork/cambada {:mvn/version "1.0.5"}}
                             :main-opts  ["-m" "cambada.native-image"
                                          "-m" "${MAIN_CLASS}"]}}}
 
