@@ -38,7 +38,9 @@ RUN pip3 install --upgrade \
           boto \
           boto3 \
           botocore \
-          psycopg2-binary
+          psycopg2-binary \
+          aws_requests_auth \
+          elasticsearch
 
 
 RUN set -e && yq --version

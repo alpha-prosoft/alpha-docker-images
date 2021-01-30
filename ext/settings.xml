@@ -5,6 +5,11 @@
       <username>${artifacts.username}</username>
       <password>${artifacts.password}</password>
     </server>
+    <server>
+      <id>dev</id>
+      <username>${ARTIFACT_USERNAME}</username>
+      <password>${ARTIFACT_PASSWORD}</password>
+    </server>
   </servers>
 </settings>
 

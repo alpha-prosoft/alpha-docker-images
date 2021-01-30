@@ -47,11 +47,15 @@ ONBUILD RUN cat /home/build/.clojure/deps.edn
 ONBUILD COPY --chown=build:build deps.edn deps-temp.edn
 
 ONBUILD RUN clj -Sdeps '{}' merge.clj
-ONBUILD RUN clj -Stree
 ONBUILD RUN cat deps.edn 
 
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+            cat /home/build/.m2/settings.xml &&\
+            clj -Stree
 
-ONBUILD RUN clj -e :ok
+
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+            clj -e :ok
 
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}src" src
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}api" api
@@ -59,10 +63,10 @@ ONBUILD COPY --chown=build:build "${ROOT_DIR_E}schema" schema
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}resources" resources
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test 
 
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml  set -e &&\
+            clj -A:test:runner
 
-ONBUILD RUN set -e && clj -A:test:runner
-
-ONBUILD RUN set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
             mkdir -p /dist/release-libs/ &&\
             if [[ -d "api" ]]; then \
               cd api; \
@@ -78,7 +82,8 @@ ONBUILD RUN set -e &&\
             fi &&\
             ls -la /dist/release-libs/
 
-ONBUILD RUN set -e && clojure -Sverbose -A:native-image \
+ONBUILD RUN  --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+     clojure -Sverbose -A:native-image \
      --image-name ${PROJECT_NAME} \
      --out target \
         -m ${MAIN_CLASS} \
