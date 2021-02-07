@@ -66,21 +66,6 @@ ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml  set -e &&\
             clj -A:test:runner
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-            mkdir -p /dist/release-libs/ &&\
-            if [[ -d "api" ]]; then \
-              cd api; \
-              if [[ -f "deps.edn" ]]; then \
-                clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
-                  -m cambada.jar \
-                  --app-version "1.0.BUILD_ID" \
-                  --app-artifact-id "${PROJECT_NAME}" \
-                  --copy-source \
-                  -o /dist/release-libs/; \
-                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.bBUILD_ID.pom.xml"; \
-               fi \
-            fi &&\
-            ls -la /dist/release-libs/
 
 ONBUILD RUN  --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
      clojure -Sverbose -A:native-image \
@@ -115,6 +100,22 @@ ONBUILD RUN cp bootstrap target/ &&\
 
 ONBUILD RUN ls -la /dist/ 
 
-ONBUILD ARG BUILD_ID 
+ONBUILD ARG BUILD_ID
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+            mkdir -p /dist/release-libs/ &&\
+            if [[ -d "api" ]]; then \
+              cd api; \
+              if [[ -f "deps.edn" ]]; then \
+                clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
+                  -m cambada.jar \
+                  --app-version "1.0.b${BUILD_ID}" \
+                  --app-artifact-id "${PROJECT_NAME}" \
+                  --copy-source \
+                  -o /dist/release-libs/; \
+                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b{BUILD_ID}.jar.pom.xml"; \
+               fi \
+            fi &&\
+            ls -la /dist/release-libs/
+
 ONBUILD ENV BUILD_ID ${BUILD_ID}
 

@@ -21,6 +21,8 @@ ONBUILD RUN shadow-cljs classpath
 
 ONBUILD COPY --chown=build:build resources resources
 ONBUILD COPY --chown=build:build src src
+ONBUILD COPY --chown=build:build lib lib
+ONBUILD COPY --chown=build:build api api
 
 ONBUILD RUN set -e && clojure -A:test:runner
 ONBUILD RUN set -e && shadow-cljs release app
