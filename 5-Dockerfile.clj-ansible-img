@@ -21,6 +21,8 @@ RUN chmod +x bootstrap
 
 ONBUILD ARG PROJECT_NAME 
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+ONBUILD ARG DOCKER_ORG
+ONBUILD ENV DOCKER_ORG ${DOCKER_ORG}
 
 ONBUILD ARG BUILD_RAM=31
 ONBUILD ARG DEPLOY_TARGET
@@ -59,6 +61,7 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
 
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}src" src
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}api" api
+ONBUILD COPY --chown=build:build "${ROOT_DIR_E}lib" lib
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}schema" schema
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}resources" resources
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test 
@@ -110,10 +113,24 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
                   -m cambada.jar \
                   --app-version "1.0.b${BUILD_ID}" \
                   --app-artifact-id "${PROJECT_NAME}" \
+                  --app-group-id ${DOCKER_ORG} \
                   --copy-source \
                   -o /dist/release-libs/; \
-                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b{BUILD_ID}.jar.pom.xml"; \
+                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.jar.pom.xml"; \
                fi \
+            fi &&\
+            if [[ -d "lib" ]]; then \
+               cd lib; \
+               if [[ -f "deps.edn" ]]; then \
+                 clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
+                   -m cambada.jar \
+                   --app-version "1.0.b${BUILD_ID}" \
+                   --app-artifact-id "${PROJECT_NAME}" \
+                   --app-group-id ${DOCKER_ORG} \
+                   --copy-source \
+                   -o /dist/release-libs/; \
+                 cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.jar.pom.xml"; \
+                fi \
             fi &&\
             ls -la /dist/release-libs/
 
