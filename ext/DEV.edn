@@ -1,6 +1,6 @@
 {:mvn/repos
  {"central" {:url "https://repo1.maven.org/maven2/"}
   "clojars" {:url "https://clojars.org/repo"}
-  "dev" {:url "https://alphaprosoft2.jfrog.io/artifactory/dev-releases"}}}
+  "dev" {:url "https://alphaprosoft3.jfrog.io/artifactory/dev"}}}
 
 
