@@ -1,30 +1,67 @@
-# syntax=docker/dockerfile:experimental
-
 ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ubuntu:20.04
+FROM ${DOCKER_URL}/ubuntu:20.04
 
 WORKDIR /root
 ENV DEBIAN_FRONTEND noninteractive
 
+SHELL ["/bin/bash", "-c"]
 
 RUN groupadd --gid 2024 build &&\
-    adduser --system --gid 2024 --uid 2025 build
+    adduser --system --gid 2024 --uid 2025 build &&\
+    groupadd --gid 999 docker &&\
+    usermod -aG docker build
 
+RUN ln -fs /usr/share/zoneinfo/Europe/Vienna  /etc/localtime
 
 RUN apt-get update &&\
     apt-get install -y unzip \
+                       zip \
                        jq \
                        gpg \
-                       gpg \
-                       zip \
+                       git \
+                       ssh \
                        vim \
+                       uuid-runtime \
+                       gettext-base \
+                       python3-pip \
+                       ca-certificates \
                        curl &&\
     apt-get clean
 
+COPY cert/*  /usr/local/share/ca-certificates/
+RUN update-ca-certificates -v
 
 
-RUN ln -fs /usr/share/zoneinfo/Europe/Vienna  /etc/localtime
+RUN pip3 install --upgrade \
+          ansible \
+          jinja2 \
+          boto \
+          boto3 \
+          docker-py \
+          botocore \
+          elasticsearch \
+          aws-requests-auth \
+          psycopg2-binary \
+          yq \
+          psycopg2-binary
+
+RUN set -e &&\
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
+    unzip awscliv2.zip &&\
+    ./aws/install
+
+RUN aws --version
+
+COPY ext/ansible.cfg /etc/ansible/ansible.cfg
+COPY ext/gitconfig /home/build/.gitconfig
+RUN set -e &&\
+    mkdir /home/build/.ssh &&\
+    chown build:build -R /home/build/.ssh &&\
+    chmod -R 700 /home/build/.ssh
+
+WORKDIR /home/build
+USER build
 

@@ -1,56 +1,26 @@
-# syntax=docker/dockerfile:experimental
 ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
 FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
 
+ARG NPM_REGISTRY ""
+
 ARG BUILD_ID
 RUN echo "Building common: ${BUILD_ID}"
 
-
-RUN groupadd --gid 999 docker
+USER root
 
 RUN apt-get update &&\
     apt-get install -y build-essential \
-                       ca-certificates \
                        libz-dev \
-                       python3-pip \
                        virtualenv \
-                       unzip \
-                       jq \
-                       ssh \
-                       zip \
-                       curl \
                        maven \
-                       git \
                        rlwrap \
                        docker.io &&\
     apt-get clean
 
 
-RUN usermod -aG docker build
-
-RUN pip3 install --upgrade \
-          ansible \
-          jinja2 \
-          yq \
-          boto \
-          boto3 \
-          botocore \
-          psycopg2-binary \
-          aws_requests_auth \
-          elasticsearch
-
-
-RUN set -e && yq --version
-
-RUN set -e &&\
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
-    unzip awscliv2.zip &&\
-    ./aws/install
-
-RUN aws --version
 
 COPY ext/gitconfig /home/build/.gitconfig
 
@@ -63,11 +33,21 @@ RUN curl -o graal-vm.tar.gz -L  "${GRAAL_VM_URL}" &&\
     ln -s "/opt/$(basename /opt/graalvm*)" /opt/graalvm
 
 ENV GRAALVM_HOME /opt/graalvm/
+
+COPY cert cert
+
+RUN find /opt -name cacerts
+
+RUN set -e &&\
+    ls -la /opt/graalvm/bin &&\
+    if [[ -f cert/cacerts ]]; then \
+      cp -f cert/cacerts /opt/graalvm/lib/security/cacerts; \
+    fi
+
 ENV PATH $PATH:"/opt/graalvm/bin"
 
 
 COPY --chown=2025:2024 ext/ssh-config  /home/build/.ssh/config
-
 RUN chmod 700 /home/build/.ssh/config
 
 
@@ -80,15 +60,14 @@ RUN mkdir /tmp/graalvm/ &&\
 
 
 # Install clojure
-RUN curl -o clojure-linux-install.sh https://download.clojure.org/install/linux-install-1.10.3.855.sh &&\
+RUN set -e &&\
+    curl -L https://download.clojure.org/install/linux-install-1.10.3.967.sh -o clojure-linux-install.sh &&\
     chmod +x clojure-linux-install.sh &&\
-    ./clojure-linux-install.sh 
+    ./clojure-linux-install.sh
 
-# Install leiningen
-RUN mkdir /opt/bin &&\
-    curl -o /opt/bin/lein https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein &&\
-    chmod +x /opt/bin/lein &&\
-    /opt/bin/lein
+RUN set -e &&\
+    curl -o /usr/bin/lein  https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein &&\
+    chmod +x /usr/bin/lein
 
 ENV PATH "${PATH}:/opt/bin/lein"
 
@@ -106,6 +85,14 @@ RUN apt-get install -y nodejs npm &&\
     node -v &&\
     npm -v
 
+RUN cat /usr/local/share/ca-certificates/*.crt > /usr/local/share/ca-certificates/npm.pem  &&\
+    echo "Setting NPM cert" &&\
+    npm config set -g cafile /usr/local/share/ca-certificates/npm.pem || echo "No certificates"
+
+RUN set -e &&\
+    if [[ ! "${NPM_REGISTRY}" == "" ]]; then \
+      npm config set -g registry ${NPM_REGISTRY}; \
+    fi
 
 COPY --chown=build:build ext/settings.xml /home/build/.m2/settings.xml
 
@@ -113,12 +100,28 @@ RUN mkdir /dist &&\
     mkdir /dist/release-libs &&\
     chown build:build /dist -R
 
+# Install flyway
 
 
+# Database mgmt
+ENV FLYWAY_EDITION community
+RUN set -ex &&\
+    curl -o flyway.tar.gz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/7.3.1/flyway-commandline-7.3.1-linux-x64.tar.gz" &&\
+    ls -la . &&\
+    tar xvf flyway.tar.gz &&\
+    rm -rf flyway.tar.gz &&\
+    mv "$(pwd)/flyway-7.3.1" /opt/flyway-7.3.1 &&\
+    chmod +x /opt/flyway-7.3.1/flyway &&\
+    ln -s "/opt/flyway-7.3.1/flyway" "/usr/local/bin/flyway"
 
-# Finalize
-USER build
-WORKDIR /home/build
+RUN apt-get update &&\
+    apt-get install -y golang-go &&\
+    go version &&\
+    apt-get clean
+
+RUN mkdir -p /dist/release-libs/ &&\
+    chown build:build -R /dist
+
 
 # Setup trust
 RUN mkdir -p /home/build/.ssh &&\
@@ -129,4 +132,10 @@ RUN mkdir -p /home/build/.ssh &&\
 COPY --chown=2025:2024 ext/deploy.sh /dist/deploy.sh
 COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
 
+COPY --chown=2025:2025 ext/merge.clj merge.clj
+COPY --chown=2025:2025 ext/deps.edn /home/build/.clojure/deps.edn
+COPY --chown=2025:2025 ext/DEV.edn /home/build/.clojure/DEV.edn
+COPY --chown=2025:2025 ext/PROD.edn /home/build/.clojure/PROD.edn
 
+USER build
+WORKDIR /home/build

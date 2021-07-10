@@ -18,13 +18,14 @@ COPY --chown=build:build ext/bootstrap bootstrap
 RUN chmod +x bootstrap
 
 
+ONBUILD ARG BUILD_RAM=31
 
 ONBUILD ARG PROJECT_NAME 
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+
 ONBUILD ARG DOCKER_ORG
 ONBUILD ENV DOCKER_ORG ${DOCKER_ORG}
 
-ONBUILD ARG BUILD_RAM=31
 ONBUILD ARG DEPLOY_TARGET
 ONBUILD ENV DEPLOY_TARGET ${DEPLOY_TARGET}
 
@@ -69,25 +70,60 @@ ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml  set -e &&\
             clj -A:test:runner
 
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml  set -e &&\
+            clj -A:test:it
+
+ONBUILD RUN set -e && \
+            if [[ -f /dist/deploy/files/reflectconfig.json ]]; \
+            then jq -s "[.[][]]" \
+              /dist/deploy/files/reflectconfig.json \
+              /dist/reflectconfig.json \
+              > /dist/reflectconfig.tmp ; \
+              mv /dist/reflectconfig.tmp /dist/reflectconfig.json; \
+              echo "Merged extension reflectconfig.json"; fi
+
+
+ONBUILD RUN set -e &&\
+    export RANDOM="$(openssl rand -base64 12)" &&\
+    curl -s http://169.254.169.254/latest/dynamic/instance-identity/document -v &&\
+    export AWS_DEFAULT_REGION="$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)" &&\
+    TARGET_ACCOUNT_ID="$(aws sts get-caller-identity | jq -r '.Account')" &&\
+    cred=$(aws sts assume-role \
+                --role-arn arn:aws:iam::${TARGET_ACCOUNT_ID}:role/PipelineRole \
+                --role-session-name "${PROJECT_NAME}-deployment-${RANDOM}" \
+                --endpoint https://sts.${AWS_DEFAULT_REGION}.amazonaws.com \
+                --region ${AWS_DEFAULT_REGION}) &&\
+    export AWS_ACCESS_KEY_ID=$(echo $cred | jq -r '.Credentials.AccessKeyId') &&\
+    export AWS_SECRET_ACCESS_KEY=$(echo $cred | jq -r '.Credentials.SecretAccessKey') &&\
+    export AWS_SESSION_TOKEN=$(echo $cred | jq -r '.Credentials.SessionToken') &&\
+    domain_name=$(aws es list-domain-names  | jq -r '.DomainNames[0].DomainName') &&\
+    echo "Found domain ${domain_name}" &&\
+    domain_url=$(aws es describe-elasticsearch-domain --domain-name ${domain_name} | jq -r '.DomainStatus.Endpoints.vpc') &&\
+    export IndexDomainEndpoint=$domain_url &&\
+    clj -M:test:it
 
 ONBUILD RUN  --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-     clojure -Sverbose -A:native-image \
+     clojure -Sverbose -M:native-image \
      --image-name ${PROJECT_NAME} \
      --out target \
         -m ${MAIN_CLASS} \
         -d deps.edn \
+        --graalvm-opt Dclojure.tools.logging.factory=lambda.logging/factory \
         --graalvm-opt -no-server \
         --graalvm-opt -enable-https \
         --graalvm-opt  J-Xms${BUILD_RAM}g \
         --graalvm-opt  J-Xmx${BUILD_RAM}g \
         --graalvm-opt -enable-url-protocols=https \
         --graalvm-opt -enable-all-security-services \
+        --graalvm-opt H:TraceClassInitialization=true \
         --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
-        --graalvm-opt -report-unsupported-elements-at-runtime \
         --graalvm-opt H:+ReportExceptionStackTraces \
-        --graalvm-opt H:IncludeResources='resources/*' \
+        --graalvm-opt H:IncludeResources='.*' \
+        --graalvm-opt H:Log=registerResource \
+        --graalvm-opt -report-unsupported-elements-at-runtime \
         --graalvm-opt -initialize-at-build-time=org.postgresql.Driver \
         --graalvm-opt -initialize-at-build-time=org.postgresql.util.SharedTimer \
+        --graalvm-opt -initialize-at-run-time=org.httpkit.client \
         --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
         --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
         --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient \
