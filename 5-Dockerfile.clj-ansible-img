@@ -174,32 +174,40 @@ ONBUILD ENV BUILD_ID ${BUILD_ID}
 
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 
+ONBUILD ARG ANSIBLE_LOG_LEVEL
+ONBUILD ENV ANSIBLE_LOG_LEVEL ${ANSIBLE_LOG_LEVEL}
+
+ONBUILD ARG AWS_REGION
+ONBUILD ENV AWS_REGION ${AWS_REGION}
+
+
 ONBUILD COPY --chown=2025:2024 ansible ansible
 ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
-  if [ -f "ansible/build/requirements.yml" ]; then \
+  if [[ -f "ansible/build/requirements.yml" ]]; then \
     ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
   fi &&\
-  if [ -f "ansible/deploy/requirements.yml" ]; then \
+  if [[ -f "ansible/deploy/requirements.yml" ]]; then \
     ansible-galaxy install -vvvv --force --roles-path ansible/deploy/roles --keep-scm-meta -r ansible/deploy/requirements.yml; \
   fi &&\
-  if [ -d "ansible/deploy" ]; then \
+  if [[ -d "ansible/deploy" ]]; then \
     mkdir -p /dist/ansible/deploy; \
     cp -r ansible/deploy/* /dist/ansible/deploy; \
   fi 
  
-SHELL ["/bin/bash","-c"]
+
 
 ONBUILD RUN set -ex &&\
-  if [ -f "ansible/build/build.yml" ]; then \
+  if [[ -f "ansible/build/build.yml" ]]; then \
     mkdir ansible/build/group_vars &&\
+    echo "localhost" > ansible/build/inventory &&\
     echo '{"params" : \
              {"BuildId" : "'${BUILD_ID}'", \
-              "AWS_DEFAULT_REGION" : "eu-west-1", \
+              "AWS_DEFAULT_REGION" : "'${AWS_REGION}'", \
               "ProjectName" : "'${PROJECT_NAME}'"}}' \
         > ansible/build/group_vars/all.json &&\
     ansible-playbook \
       -i ansible/build/inventory \
-      -${ANSIBLE_LOG_LEVEL:-vvv} \
+      ${ANSIBLE_LOG_LEVEL:-} \
       ansible/build/build.yml; \
   fi
  

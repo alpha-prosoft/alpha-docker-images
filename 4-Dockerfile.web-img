@@ -19,8 +19,6 @@ COPY --chown=build:build ext/merge.clj merge.clj
 
 
 ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
-ONBUILD COPY --chown=build:build package.json package.json
-ONBUILD COPY --chown=build:build package-lock.json package-lock.json
 
 ONBUILD COPY --chown=build:build deps.edn deps-temp.edn
 
@@ -29,7 +27,6 @@ ONBUILD RUN cat deps.edn
 
 
 ONBUILD RUN mkdir -p /dist/s3
-ONBUILD RUN npm install
 
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
              shadow-cljs classpath
@@ -40,20 +37,18 @@ ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
 
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-              clojure -M:test:runner
-
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-               shadow-cljs release app
-
-ONBUILD RUN cp -r resources/public/* /dist/s3/ &&\
-            mkdir -p resources/dev/template/ &&\
-            mkdir -p /dist/template &&\
-            cp resources/dev/template/* /dist/template/
+              clojure -M:test:runner &&\
+              shadow-cljs release app &&\
+              cp -r resources/public/* /dist/s3/ &&\
+              mkdir -p resources/dev/template/ &&\
+              mkdir -p /dist/template &&\
+              cp resources/dev/template/* /dist/template/ &&\
+              npm version 1.0.${BUILD_ID} &&\
+              rm -rf node_modules 
+                
 
 ONBUILD ARG BUILD_ID
 ONBUILD ENV BUILD_ID ${BUILD_ID}
-
-ONBUILD RUN npm version 1.0.${BUILD_ID}
 
 ONBUILD RUN ls -la /dist
 

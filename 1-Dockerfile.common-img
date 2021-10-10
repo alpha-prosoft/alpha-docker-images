@@ -129,13 +129,17 @@ RUN mkdir -p /home/build/.ssh &&\
 
 
 
-COPY --chown=2025:2024 ext/deploy.sh /dist/deploy.sh
 COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
 
 COPY --chown=2025:2025 ext/merge.clj merge.clj
 COPY --chown=2025:2025 ext/deps.edn /home/build/.clojure/deps.edn
 COPY --chown=2025:2025 ext/DEV.edn /home/build/.clojure/DEV.edn
 COPY --chown=2025:2025 ext/PROD.edn /home/build/.clojure/PROD.edn
+
+RUN set -e &&\
+    mkdir -p /home/build/.ssh &&\
+    chown build:build -R /home/build/.ssh &&\
+    chmod -R 700 /home/build/.ssh
 
 USER build
 WORKDIR /home/build

@@ -50,7 +50,7 @@ RUN pip3 install --upgrade \
 
 RUN set -e &&\
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
-    unzip awscliv2.zip &&\
+    unzip -qq awscliv2.zip &&\
     ./aws/install
 
 RUN aws --version
@@ -58,7 +58,7 @@ RUN aws --version
 COPY ext/ansible.cfg /etc/ansible/ansible.cfg
 COPY ext/gitconfig /home/build/.gitconfig
 RUN set -e &&\
-    mkdir /home/build/.ssh &&\
+    mkdir -p /home/build/.ssh &&\
     chown build:build -R /home/build/.ssh &&\
     chmod -R 700 /home/build/.ssh
 
