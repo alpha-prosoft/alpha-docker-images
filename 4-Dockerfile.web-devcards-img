@@ -38,12 +38,12 @@ ONBUILD COPY --chown=build:build api api
 
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
               clojure -M:test:runner &&\
-              shadow-cljs release app &&\
+              shadow-cljs -A:dev release devcards &&\
               cp -r resources/public/* /dist/s3/ &&\
               mkdir -p resources/dev/template/ &&\
               mkdir -p /dist/template &&\
               cp resources/dev/template/* /dist/template/ &&\
-              rm -rf node_modules 
+              rm -rf node_modules
                 
 
 ONBUILD ARG BUILD_ID

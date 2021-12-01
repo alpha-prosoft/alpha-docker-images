@@ -43,7 +43,6 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
               mkdir -p resources/dev/template/ &&\
               mkdir -p /dist/template &&\
               cp resources/dev/template/* /dist/template/ &&\
-              npm version 1.0.${BUILD_ID} &&\
               rm -rf node_modules 
                 
 
