@@ -10,6 +10,11 @@
       <username>${ARTIFACT_USERNAME}</username>
       <password>${ARTIFACT_PASSWORD}</password>
     </server>
+    <server>
+      <id>prod</id>
+      <username>${ARTIFACT_USERNAME}</username>
+      <password>${ARTIFACT_PASSWORD}</password>
+    </server>
   </servers>
 </settings>
 
