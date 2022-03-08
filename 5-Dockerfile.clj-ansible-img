@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:experimental
 ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
@@ -102,45 +101,32 @@ ONBUILD RUN set -e &&\
     export IndexDomainEndpoint=$domain_url &&\
     clj -M:test:it
 
-ONBUILD RUN  --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-     clojure -Sverbose -M:native-image \
-     --image-name ${PROJECT_NAME} \
-     --out target \
-        -m ${MAIN_CLASS} \
-        -d deps.edn \
-        --graalvm-opt Dclojure.tools.logging.factory=lambda.logging/factory \
-        --graalvm-opt -no-server \
-        --graalvm-opt -enable-https \
-        --graalvm-opt  J-Xms${BUILD_RAM}g \
-        --graalvm-opt  J-Xmx${BUILD_RAM}g \
-        --graalvm-opt -enable-url-protocols=https \
-        --graalvm-opt -enable-all-security-services \
-        --graalvm-opt H:TraceClassInitialization=true \
-        --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
-        --graalvm-opt H:+ReportExceptionStackTraces \
-        --graalvm-opt H:IncludeResources='.*' \
-        --graalvm-opt H:Log=registerResource \
-        --graalvm-opt -report-unsupported-elements-at-runtime \
-        --graalvm-opt -initialize-at-build-time=org.postgresql.Driver \
-        --graalvm-opt -initialize-at-build-time=org.postgresql.util.SharedTimer \
-        --graalvm-opt -initialize-at-run-time=org.httpkit.client \
-        --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
-        --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
-        --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient \
-        || { cat /tmp/clojure-*.edn; exit 1; }
-
-ONBUILD RUN cp bootstrap target/ &&\
-    cd target &&\
-    mv ${PROJECT_NAME} lambda_function &&\
-    chmod +x lambda_function &&\
-    zip /dist/${PROJECT_NAME}.zip lambda_function &&\
-    zip /dist/${PROJECT_NAME}.zip bootstrap &&\
-    mv /dist/${PROJECT_NAME}.zip /dist/${PROJECT_NAME}.jar
-
-ONBUILD RUN ls -la /dist/ 
 
 ONBUILD ARG BUILD_ID
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN set -e &&\
+            clj merge.clj &&\
+            clj -Stree &&\
+            cat deps.edn &&\
+            set -e && clj -M:test:runner &&\
+            set -e && clj -M:test:unit &&\
+            echo "Running integration tests" &&\
+            curl -s http://169.254.169.254/latest/dynamic/instance-identity/document -v &&\
+            export AWS_DEFAULT_REGION="$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)" &&\
+            TARGET_ACCOUNT_ID="$(aws sts get-caller-identity | jq -r '.Account')" &&\
+            cred=$(aws sts assume-role \
+                --role-arn arn:aws:iam::${TARGET_ACCOUNT_ID}:role/PipelineRole \
+                --role-session-name "${PROJECT_NAME}-deployment-${RANDOM}" \
+                --endpoint https://sts.${AWS_DEFAULT_REGION}.amazonaws.com \
+                --region ${AWS_DEFAULT_REGION}) &&\
+            export AWS_ACCESS_KEY_ID=$(echo $cred | jq -r '.Credentials.AccessKeyId') &&\
+            export AWS_SECRET_ACCESS_KEY=$(echo $cred | jq -r '.Credentials.SecretAccessKey') &&\
+            export AWS_SESSION_TOKEN=$(echo $cred | jq -r '.Credentials.SessionToken') &&\
+            domain_name=$(aws es list-domain-names  | jq -r '.DomainNames[0].DomainName') &&\
+            echo "Found domain ${domain_name}" &&\
+            domain_url=$(aws es describe-elasticsearch-domain --domain-name ${domain_name} | jq -r '.DomainStatus.Endpoints.vpc') &&\
+            export IndexDomainEndpoint=$domain_url &&\
+            clj -M:test:it &&\
+            echo "Compiling" &&\
             mkdir -p /dist/release-libs/ &&\
             if [[ -d "api" ]]; then \
               cd api; \
@@ -149,28 +135,69 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
                   -m cambada.jar \
                   --app-version "1.0.b${BUILD_ID}" \
                   --app-artifact-id "${PROJECT_NAME}" \
-                  --app-group-id ${DOCKER_ORG} \
+                  --app-group-id "${ARTIFACT_ORG}" \
                   --copy-source \
                   -o /dist/release-libs/; \
                 cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.jar.pom.xml"; \
                fi \
             fi &&\
-            if [[ -d "lib" ]]; then \
-               cd lib; \
-               if [[ -f "deps.edn" ]]; then \
-                 clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
-                   -m cambada.jar \
-                   --app-version "1.0.b${BUILD_ID}" \
-                   --app-artifact-id "${PROJECT_NAME}" \
-                   --app-group-id ${DOCKER_ORG} \
-                   --copy-source \
-                   -o /dist/release-libs/; \
-                 cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.b${BUILD_ID}.jar.pom.xml"; \
-                fi \
-            fi &&\
-            ls -la /dist/release-libs/
+            cd /home/build &&\
+            echo $(clj -J-Dedd.runtime=edd.schema.swagger/swagger-runtime -J-Dedd.schema.out="/dist/schema.json" -m ${MAIN_CLASS} || echo "No schema generated") &&\
+            ls -la /dist/release-libs/ &&\
+            tree /dist | grep -v "class" &&\
+            echo "Preparing extensions" &&\
+            if [[ -f /dist/deploy/files/reflectconfig.json ]]; \
+            then jq -s "[.[][]]" \
+              /dist/deploy/files/reflectconfig.json \
+              /dist/reflectconfig.json \
+              > /dist/reflectconfig.tmp ; \
+              mv /dist/reflectconfig.tmp /dist/reflectconfig.json; \
+              echo "Merged extension reflectconfig.json"; fi &&\
+            cat /dist/reflectconfig.json &&\
+            cat deps.edn &&\
+            echo "Building" &&\
+            export INIT_PACKAGES="${MAIN_CLASS%%.*},runtime,import,batch,aws,jdk,javax,sdk,clj_aws_sign,ring,jsonista,camel_snake_kebab,lambda,clojure,next,org,com,ch,java,iso_7064,borkdude,edd,malli,${EXT_INIT_PACKAGES:-java}" &&\
+            clojure -Sverbose -M:native-image \
+             --image-name ${PROJECT_NAME} \
+             --out target \
+                -m ${MAIN_CLASS} \
+                -d deps.edn \
+                --graalvm-opt -enable-https \
+                --graalvm-opt  J-Xms${BUILD_RAM}g \
+                --graalvm-opt  J-Xmx${BUILD_RAM}g \
+                --graalvm-opt  Dcom.zaxxer.hikari.useWeakReferences=false \
+                --graalvm-opt -enable-url-protocols=https \
+                --graalvm-opt H:TraceClassInitialization=true \
+                --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
+                --graalvm-opt H:+ReportExceptionStackTraces \
+                --graalvm-opt H:IncludeResources='conf/.*' \
+                --graalvm-opt H:IncludeResources='META-INF/.*' \
+                --graalvm-opt H:IncludeResources='META-INF/services/.*' \
+                --graalvm-opt H:IncludeResources='main/.*' \
+                --graalvm-opt H:IncludeResources='logback.xml' \
+                --graalvm-opt H:Log=registerResource \
+                --graalvm-opt -report-unsupported-elements-at-runtime \
+                --graalvm-opt -initialize-at-build-time=${INIT_PACKAGES} \
+                --graalvm-opt -initialize-at-run-time=org.httpkit.client \
+                --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
+                --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
+                --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient &&\
+             cat target/*.build_artifacts.txt &&\
+             tree &&\
+             echo "Packaging" &&\
+             cp bootstrap target/ &&\
+             cd target &&\
+             mv ${PROJECT_NAME} lambda_function &&\
+             cp lambda_function /dist/lambda_function &&\
+             chmod +x lambda_function &&\
+             zip /dist/${PROJECT_NAME}.zip lambda_function &&\
+             zip /dist/${PROJECT_NAME}.zip bootstrap &&\
+             mv /dist/${PROJECT_NAME}.zip /dist/${PROJECT_NAME}.jar &&\
+             rm -rf ~/.m2/repository &&\
+             rm -rf target
 
-ONBUILD ENV BUILD_ID ${BUILD_ID}
+
+ONBUILD RUN ls -la /dist/ 
 
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 

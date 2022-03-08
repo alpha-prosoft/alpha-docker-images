@@ -25,7 +25,7 @@ RUN apt-get update &&\
 COPY ext/gitconfig /home/build/.gitconfig
 
 # Install GraalVM
-ENV GRAAL_VM_URL "https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.1.0/graalvm-ce-java11-linux-amd64-21.1.0.tar.gz"
+ENV GRAAL_VM_URL "https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-22.0.0.2/graalvm-ce-java11-linux-amd64-22.0.0.2.tar.gz"
 RUN curl -o graal-vm.tar.gz -L  "${GRAAL_VM_URL}" &&\
     tar -xvf graal-vm.tar.gz -C /opt  &&\
     rm -rf graal-vm.tar.gz &&\
@@ -52,7 +52,7 @@ RUN chmod 700 /home/build/.ssh/config
 
 
 
-ENV GRAALVM_NATIVE_IMAGE_URL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-21.1.0/native-image-installable-svm-java11-linux-amd64-21.1.0.jar
+ENV GRAALVM_NATIVE_IMAGE_URL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-22.0.0.2/native-image-installable-svm-java11-linux-amd64-22.0.0.2.jar
 RUN mkdir /tmp/graalvm/ &&\
     curl -o /tmp/graalvm-native-image.jar ${GRAALVM_NATIVE_IMAGE_URL} -k -L &&\
     gu -L install /tmp/graalvm-native-image.jar &&\

@@ -1,5 +1,5 @@
 {:mvn/repos {}
- :aliases   {:native-image {:extra-deps {luchiniatwork/cambada {:mvn/version "1.0.5"}}
+ :aliases   {:native-image {:extra-deps {com.alpha-prosoft/cambada {:mvn/version "1.0.6"}}
                             :main-opts  ["-m" "cambada.native-image"
                                          "-m" "${MAIN_CLASS}"]}}}
 
