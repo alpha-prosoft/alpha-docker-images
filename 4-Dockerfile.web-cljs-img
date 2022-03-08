@@ -28,22 +28,23 @@ ONBUILD RUN cat deps.edn
 
 ONBUILD RUN mkdir -p /dist/s3
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
-             shadow-cljs classpath
-
 ONBUILD COPY --chown=build:build resources resources
 ONBUILD COPY --chown=build:build src src
 ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
+ONBUILD COPY --chown=build:build www www
 
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
               clojure -M:test:runner &&\
               shadow-cljs release app &&\
+              mkdir -p resources/public/ &&\
+              touch resources/public/empty &&\
               cp -r resources/public/* /dist/s3/ &&\
-              mkdir -p resources/dev/template/ &&\
-              mkdir -p /dist/template &&\
-              cp resources/dev/template/* /dist/template/ &&\
-              rm -rf node_modules 
+              touch www/empty &&\
+              cp -r www/* /dist/s3/ &&\
+              rm -rf node_modules &&\
+              rm -rf ~/.m2/repository
+              
                 
 
 ONBUILD ARG BUILD_ID

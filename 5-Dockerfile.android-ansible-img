@@ -7,14 +7,14 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
 
 USER root
 
-RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-6.7.1-bin.zip &&\
+RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.3.3-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
-    rm /tmp/gradle.zip
+    rm /tmp/gradle.zip &&\
+    mv /opt/gradle/gradle-* /opt/gradle/gradle-latest
 
 
-RUN ls -la /opt/gradle/gradle-6.7.1
 
-ENV GRADLE_HOME /opt/gradle/gradle-6.7.1
+ENV GRADLE_HOME /opt/gradle/gradle-latest
 ENV PATH ${GRADLE_HOME}/bin:${PATH}`
 
 RUN set -e \
@@ -23,7 +23,7 @@ RUN set -e \
 ENV SDK_URL "https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip" 
 ENV ANDROID_SDK_ROOT "/usr/local/android-sdk" 
 ENV ANDROID_VERSION 28 
-ENV ANDROID_BUILD_TOOLS_VERSION 29.0.3
+ENV ANDROID_BUILD_TOOLS_VERSION 30.0.3
 
 # Download Android SDK
 RUN mkdir -p "$ANDROID_SDK_ROOT" .android \
@@ -42,8 +42,7 @@ RUN set -e \
     && $ANDROID_SDK_ROOT/cmdline-tools/bin/sdkmanager \
         --sdk_root=$ANDROID_SDK_ROOT \
           "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
-          "platforms;android-${ANDROID_VERSION}" \
-          "platform-tools"
+          "platforms;android-${ANDROID_VERSION}"
 
 # Install Build Essentials
 RUN apt-get update && apt-get install build-essential -y && apt-get install file -y && apt-get install apt-utils -y
