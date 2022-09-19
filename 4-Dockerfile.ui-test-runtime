@@ -1,0 +1,31 @@
+ARG BUILD_ID
+ARG DOCKER_URL
+ARG DOCKER_ORG
+
+FROM amazon/aws-lambda-java:11
+
+ENV PROJECT_NAME ${PROJECT_NAME}
+
+
+COPY cert/*  /etc/pki/ca-trust/source/anchors/
+RUN update-ca-trust extract
+
+RUN set -e &&\
+    yum install -y amazon-linux-extras &&\
+    amazon-linux-extras enable epel &&\
+    yum clean metadata &&\
+    yum install -y epel-release &&\
+    yum list chromium &&\
+    yum ${YUM_OPTS} install -y chromium chromedriver procps-ng unzip &&\
+    yum clean all
+
+
+RUN find /usr -name chromium
+RUN find /usr -name chromedriver
+
+RUN ln -s /usr/bin/chromedriver /var/task/chromedriver
+
+ENV DISPLAY=:99
+
+RUN find /usr -name "*chrom*"
+RUN /usr/bin/chromium-browser --no-sandbox --headless

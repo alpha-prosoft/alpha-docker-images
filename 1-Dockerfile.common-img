@@ -4,64 +4,122 @@ ARG DOCKER_ORG
 
 FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
 
-ARG NPM_REGISTRY ""
-
-ARG BUILD_ID
-RUN echo "Building common: ${BUILD_ID}"
-
 USER root
 
-RUN apt-get update &&\
-    apt-get install -y build-essential \
-                       libz-dev \
-                       virtualenv \
-                       maven \
-                       rlwrap \
-                       docker.io &&\
-    apt-get clean
+RUN set -e &&\
+    yum ${YUM_OPTS} install -y unzip python3 expect libtool-ltdl-devel expat-devel &&\
+    yum groups mark install "Development Tools" &&\
+    yum groups mark convert "Development Tools" &&\
+    yum groupinstall -y "Development Tools"
 
 
+RUN set -e &&\
+    curl https://gitlab.com/graphviz/graphviz/-/archive/2.50.0/graphviz-2.50.0.zip -o gv.tar &&\
+    unzip -qq gv.tar
 
-COPY ext/gitconfig /home/build/.gitconfig
+RUN  cd graphviz-2.50.0 &&\
+    ./autogen.sh
+RUN set -e &&\
+    cd graphviz-2.50.0 &&\
+    ./configure &&\
+    make
 
-# Install GraalVM
-ENV GRAAL_VM_URL "https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-22.0.0.2/graalvm-ce-java11-linux-amd64-22.0.0.2.tar.gz"
-RUN curl -o graal-vm.tar.gz -L  "${GRAAL_VM_URL}" &&\
-    tar -xvf graal-vm.tar.gz -C /opt  &&\
+RUN set -e &&\
+    cd graphviz-2.50.0/cmd/dot &&\
+    make dot_static
+
+RUN pwd &&\
+    ls -la graphviz-2.50.0/cmd/dot
+
+FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
+
+COPY --from=0 /home/build/graphviz-2.50.0/cmd/dot/dot_static /home/build/dot_static
+COPY --from=0 /usr/lib64/libexpat.so.1 /home/build/lib/libexpat.so.1
+
+
+WORKDIR /home/build
+USER root
+
+
+RUN cat /etc/group
+
+RUN groupadd --gid 10999 docker
+
+RUN set -e &&\
+    amazon-linux-extras enable epel &&\
+    yum clean metadata &&\
+    yum install -y epel-release 
+
+RUN set -e &&\
+    amazon-linux-extras install -y docker 
+
+RUN set -e &&\
+    yum ${YUM_OPTS} install -y ca-certificates \
+                       unzip \
+                       jq \
+                       zip \
+                       curl \
+                       rlwrap 
+
+RUN usermod -aG docker jenkins &&\
+    usermod -aG input jenkins &&\
+    usermod -aG docker build &&\
+    usermod -aG input build
+
+ENV GRAALVM_VERSION "22.1.0"
+# Install <GraalVM>
+
+RUN set -e &&\
+    yum ${YUM_OPTS} install -y compat-libstdc++-33.x86_64 zlib-devel freetype-devel libstdc++.x86_64 gcc-c++ libstdc++-static
+
+
+RUN curl -o graal-vm.tar.gz -L https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-${GRAALVM_VERSION}/graalvm-ce-java11-linux-amd64-${GRAALVM_VERSION}.tar.gz  &&\
+    tar -xf graal-vm.tar.gz -C /opt  &&\
     rm -rf graal-vm.tar.gz &&\
     ls -la /opt &&\
     ln -s "/opt/$(basename /opt/graalvm*)" /opt/graalvm
 
 ENV GRAALVM_HOME /opt/graalvm/
+ENV JAVA_HOME /opt/graalvm/
 
-COPY cert cert
-
-RUN find /opt -name cacerts
-
+COPY cert/ /opt/cert
 RUN set -e &&\
     ls -la /opt/graalvm/bin &&\
-    if [[ -f cert/cacerts ]]; then \
-      cp -f cert/cacerts /opt/graalvm/lib/security/cacerts; \
-    fi
+    if [[ -f /opt/cert/cacerts ]]; then cp -f /opt/cert/cacerts /opt/graalvm/lib/security/cacerts; fi
 
 ENV PATH $PATH:"/opt/graalvm/bin"
 
 
-COPY --chown=2025:2024 ext/ssh-config  /home/build/.ssh/config
-RUN chmod 700 /home/build/.ssh/config
-
-
-
-ENV GRAALVM_NATIVE_IMAGE_URL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-22.0.0.2/native-image-installable-svm-java11-linux-amd64-22.0.0.2.jar
 RUN mkdir /tmp/graalvm/ &&\
-    curl -o /tmp/graalvm-native-image.jar ${GRAALVM_NATIVE_IMAGE_URL} -k -L &&\
+    curl -o /tmp/graalvm-native-image.jar https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-${GRAALVM_VERSION}/native-image-installable-svm-java11-linux-amd64-${GRAALVM_VERSION}.jar -k -L &&\
     gu -L install /tmp/graalvm-native-image.jar &&\
     rm -rf /tmp/graalvm-native-image.jar
+
+# </GraalVM>
+
+# Install <maven> 
+
+RUN set -e &&\
+  mkdir -p /opt/maven &&\
+  cd /opt/maven &&\
+  curl -OL "https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz" &&\
+  tar xzf "apache-maven-3.8.6-bin.tar.gz" &&\
+  rm "apache-maven-3.8.6-bin.tar.gz"
+
+ENV MAVEN_HOME "/opt/maven/apache-maven-3.8.6"
+
+ENV PATH=$MAVEN_HOME/bin:$PATH
+
+RUN set -e &&\
+    mvn --version
+
+# </maven>
+
 
 
 # Install clojure
 RUN set -e &&\
-    curl -L https://download.clojure.org/install/linux-install-1.10.3.967.sh -o clojure-linux-install.sh &&\
+    curl -L https://download.clojure.org/install/linux-install-1.11.1.1149.sh -o clojure-linux-install.sh &&\
     chmod +x clojure-linux-install.sh &&\
     ./clojure-linux-install.sh
 
@@ -69,78 +127,68 @@ RUN set -e &&\
     curl -o /usr/bin/lein  https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein &&\
     chmod +x /usr/bin/lein
 
-ENV PATH "${PATH}:/opt/bin/lein"
+USER build
+RUN set -e &&\
+    lein --version
+USER root
 
 RUN curl -s https://raw.githubusercontent.com/borkdude/jet/master/install > jet.sh &&\
      chmod +x jet.sh &&\
      ./jet.sh
 
-RUN apt-get update &&\
-    apt-get install -y git-extras &&\
-    apt-get clean
-
-# Install nodejs
-RUN curl -fsSL https://deb.nodesource.com/setup_17.x | bash - &&\
-    apt-get install -y nodejs &&\
-    node --version &&\
-    node -v &&\
-    npm -v
-
-RUN cat /usr/local/share/ca-certificates/*.crt > /usr/local/share/ca-certificates/npm.pem  &&\
-    echo "Setting NPM cert" &&\
-    npm config set -g cafile /usr/local/share/ca-certificates/npm.pem || echo "No certificates"
 
 RUN set -e &&\
-    if [[ ! "${NPM_REGISTRY}" == "" ]]; then \
-      npm config set -g registry ${NPM_REGISTRY}; \
-    fi
+    yum ${YUM_OPTS} install -y git-extras
+
+# Install nodejs
+RUN curl -kL https://nodejs.org/dist/v16.16.0/node-v16.16.0-linux-x64.tar.xz  -o  node-v16.16.0-linux-x64.tar.xz &&\
+    tar -xf node-v16.16.0-linux-x64.tar.xz &&\
+    rm -rf node-v16.16.0-linux-x64.tar.xz &&\
+    mv node-v16.16.0-linux-x64 /opt/
+
+ENV PATH $PATH:/opt/node-v16.16.0-linux-x64/bin
+
+RUN node --version
+RUN npm --version 
+
 
 COPY --chown=build:build ext/settings.xml /home/build/.m2/settings.xml
 
-RUN mkdir /dist &&\
-    mkdir /dist/release-libs &&\
-    chown build:build /dist -R
-
 # Install flyway
 
+USER root
 
 # Database mgmt
 ENV FLYWAY_EDITION community
 RUN set -ex &&\
     curl -o flyway.tar.gz "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/7.3.1/flyway-commandline-7.3.1-linux-x64.tar.gz" &&\
     ls -la . &&\
-    tar xvf flyway.tar.gz &&\
+    tar xf flyway.tar.gz &&\
     rm -rf flyway.tar.gz &&\
     mv "$(pwd)/flyway-7.3.1" /opt/flyway-7.3.1 &&\
     chmod +x /opt/flyway-7.3.1/flyway &&\
     ln -s "/opt/flyway-7.3.1/flyway" "/usr/local/bin/flyway"
 
-RUN apt-get update &&\
-    apt-get install -y golang-go &&\
-    go version &&\
-    apt-get clean
+USER build
+
+# install go-lang compiler
+USER root
+RUN set -e &&\
+    yum ${YUM_OPTS} install -y golang-go &&\
+    go version
 
 RUN mkdir -p /dist/release-libs/ &&\
     chown build:build -R /dist
 
-
-# Setup trust
-RUN mkdir -p /home/build/.ssh &&\
-    ssh-keyscan -p 22 github.com >> /home/build/.ssh/known_hosts
-
-
-
-COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
-
-COPY --chown=2025:2025 ext/merge.clj merge.clj
-COPY --chown=2025:2025 ext/deps.edn /home/build/.clojure/deps.edn
-COPY --chown=2025:2025 ext/DEV.edn /home/build/.clojure/DEV.edn
-COPY --chown=2025:2025 ext/PROD.edn /home/build/.clojure/PROD.edn
-
+# Some usefull tolls
 RUN set -e &&\
-    mkdir -p /home/build/.ssh &&\
-    chown build:build -R /home/build/.ssh &&\
-    chmod -R 700 /home/build/.ssh
+    yum ${YUM_OPTS} install -y vim
 
-USER build
+RUN chown build:build /home/build -R
 WORKDIR /home/build
+USER build
+
+COPY --chown=build:build ext/merge.clj merge.clj
+COPY --chown=build:build ext/deps.edn /home/build/.clojure/deps.edn
+COPY --chown=build:build ext/DEV.edn /home/build/.clojure/DEV.edn
+COPY --chown=build:build ext/PROD.edn /home/build/.clojure/PROD.edn

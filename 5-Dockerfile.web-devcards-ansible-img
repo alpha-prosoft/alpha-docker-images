@@ -60,8 +60,8 @@ ONBUILD ARG AWS_REGION
 ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
-ONBUILD COPY --chown=2025:2024 ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD COPY --chown=build:build ansible ansible
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=build,gid=build,dst=/home/build/.gitcookie set -ex &&\
   if [[ -f "ansible/build/requirements.yml" ]]; then \
     ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
   fi &&\

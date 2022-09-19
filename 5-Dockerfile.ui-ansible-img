@@ -4,13 +4,64 @@ ARG DOCKER_ORG
 
 FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
 
-ONBUILD ARG BUILD_ID 
-ONBUILD ENV BUILD_ID ${BUILD_ID}
+RUN id && pwd && \
+     ls -la
 
-ONBUILD ARG PROJECT_NAME 
+
+WORKDIR /home/build
+USER build
+
+RUN mkdir -p /dist/lambda/
+
+COPY --chown=build:build ext/run-chromedriver.sh /dist/lambda/run-chromedriver.sh
+RUN chmod +x /dist/lambda/run-chromedriver.sh
+
+COPY --chown=build:build ext/fonts.conf /dist/lambda/fonts/fonts.conf
+RUN  cp -r /usr/share/fonts /dist/lambda/fonts
+
+
+
+ONBUILD ARG GIT_USERNAME
+ONBUILD ARG GIT_PASSOWRD
+
+ONBUILD ARG PROJECT_NAME
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 
-ONBUILD RUN echo "Building ${PROJECT_NAME}"
+ONBUILD ARG MAIN_CLASS
+
+ONBUILD ARG DEPLOY_TARGET
+
+COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
+
+USER root
+RUN chown build:build /dist -R
+USER build
+
+ONBUILD COPY --chown=build:build . .
+
+
+ONBUILD RUN mkdir -p  /dist/lambda/lib
+ONBUILD RUN mvn -P ${DEPLOY_TARGET} -B clean package &&\
+        ls -lah target &&\
+        cp target/*.jar target/${PROJECT_NAME}.jar &&\
+        cp target/${PROJECT_NAME}.jar /dist/lambda/lib/${PROJECT_NAME}.jar &&\
+        cp target/lib/* /dist/lambda/lib/ &&\
+        mkdir -p /dist/ansible/deploy/files &&\
+        java -cp target/${PROJECT_NAME}.jar:target/lib/* ${MAIN_CLASS} /dist/deploy/files/tests.json &&\
+        rm -rf ~/.m2/repository &&\
+        rm -rf ~/.m2
+
+ONBUILD RUN set -e && cat /dist/deploy/files/tests.json
+
+ONBUILD RUN cd /dist/lambda &&\
+            zip -rv /dist/${PROJECT_NAME}.zip .
+
+ONBUILD RUN unzip -l /dist/${PROJECT_NAME}.zip
+
+ONBUILD RUN ls -lah /dist
+ONBUILD RUN ls -lah /dist/lambda
+
+
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 
 ONBUILD ARG ANSIBLE_LOG_LEVEL

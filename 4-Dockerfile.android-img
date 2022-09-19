@@ -15,7 +15,7 @@ RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-
 
 
 ENV GRADLE_HOME /opt/gradle/gradle-latest
-ENV PATH ${GRADLE_HOME}/bin:${PATH}`
+ENV PATH $GRADLE_HOME/bin:$PATH
 
 RUN set -e \
     gradle --version
@@ -44,15 +44,12 @@ RUN set -e \
           "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
           "platforms;android-${ANDROID_VERSION}"
 
-# Install Build Essentials
-RUN apt-get update && apt-get install build-essential -y && apt-get install file -y && apt-get install apt-utils -y
-
 ENV PATH $PATH:/opt/graalvm/languages/js/bin
 
 RUN npm i -g cordova
-RUN npm install -g appcenter-cli
+RUN npm install --location=global appcenter-cli
 
-RUN apt install -y openjdk-8-jdk
+RUN yum install -y java-1.8.0-openjdk
 ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
 ENV PATH PATH $JAVA_HOME/bin:$PATH
 

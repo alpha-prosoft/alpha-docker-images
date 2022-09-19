@@ -30,7 +30,6 @@ ONBUILD ENV ROOT_DIR_E ${ROOT_DIR:-"./"}
 ONBUILD RUN echo "Building in ${ROOT_DIR}:${ROOT_DIR_E}"
 ONBUILD RUN echo "Project name ${PROJECT_NAME}"
 
-
 COPY --chown=build:build ext/test.yml /dist/deploy/test.yml
 COPY --chown=build:build ext/reflectconfig.json /dist/reflectconfig.json
 
@@ -96,57 +95,19 @@ ONBUILD RUN set -e &&\
             cd /home/build &&\
             echo $(clojure -J-Dedd.runtime=edd.schema.swagger/swagger-runtime -J-Dedd.schema.out="/dist/schema.json" -m ${MAIN_CLASS} || echo "No schema generated") &&\
             ls -la /dist/release-libs/ &&\
-            tree /dist | grep -v "class" &&\
-            echo "Preparing extensions" &&\
-            if [[ -f /dist/deploy/files/reflectconfig.json ]]; \
-            then jq -s "[.[][]]" \
-              /dist/deploy/files/reflectconfig.json \
-              /dist/reflectconfig.json \
-              > /dist/reflectconfig.tmp ; \
-              mv /dist/reflectconfig.tmp /dist/reflectconfig.json; \
-              echo "Merged extension reflectconfig.json"; fi &&\
-            cat /dist/reflectconfig.json &&\
             cat deps.edn &&\
             echo "Building" &&\
-            export INIT_PACKAGES="${MAIN_CLASS%%.*},runtime,glms_util,import,batch,aws,jdk,javax,sdk,clj_aws_sign,ring,jsonista,camel_snake_kebab,lambda,clojure,next,org,com,ch,java,iso_7064,borkdude,edd,malli,${EXT_INIT_PACKAGES:-java}" &&\
-            clojure -Sverbose -M:native-image \
-             --image-name ${PROJECT_NAME} \
-             --out target \
-                -m ${MAIN_CLASS} \
-                -d deps.edn \
-                --graalvm-opt -enable-https \
-                --graalvm-opt  J-Xms${BUILD_RAM}g \
-                --graalvm-opt  J-Xmx${BUILD_RAM}g \
-                --graalvm-opt  Dcom.zaxxer.hikari.useWeakReferences=false \
-                --graalvm-opt -enable-url-protocols=https \
-                --graalvm-opt H:TraceClassInitialization=true \
-                --graalvm-opt H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
-                --graalvm-opt H:+ReportExceptionStackTraces \
-                --graalvm-opt H:IncludeResources='conf/.*' \
-                --graalvm-opt H:IncludeResources='META-INF/.*' \
-                --graalvm-opt H:IncludeResources='META-INF/services/.*' \
-                --graalvm-opt H:IncludeResources='main/.*' \
-                --graalvm-opt H:IncludeResources='logback.xml' \
-                --graalvm-opt H:Log=registerResource \
-                --graalvm-opt -report-unsupported-elements-at-runtime \
-                --graalvm-opt -initialize-at-build-time=${INIT_PACKAGES} \
-                --graalvm-opt -initialize-at-run-time=org.httpkit.client \
-                --graalvm-opt -initialize-at-run-time=org.postgresql.sspi.SSPIClient \
-                --graalvm-opt -initialize-at-run-time=org.httpkit.client.SslContextFactory \
-                --graalvm-opt -initialize-at-run-time=org.httpkit.client.HttpClient &&\
-             cat target/*.build_artifacts.txt &&\
-             tree &&\
-             echo "Packaging" &&\
-             cp bootstrap target/ &&\
-             cd target &&\
-             mv ${PROJECT_NAME} lambda_function &&\
-             cp lambda_function /dist/lambda_function &&\
-             chmod +x lambda_function &&\
-             zip /dist/${PROJECT_NAME}.zip lambda_function &&\
-             zip /dist/${PROJECT_NAME}.zip bootstrap &&\
-             mv /dist/${PROJECT_NAME}.zip /dist/${PROJECT_NAME}.jar &&\
-             rm -rf ~/.m2/repository &&\
-             rm -rf target
+            clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
+             -A:uberjar \
+             -m "cambada.uberjar" \
+             --main "${MAIN_CLASS}" \
+             --app-group-id "com.rbinternational.glms" \
+             --app-artifact-id "${PROJECT_NAME}" \
+             --app-version "1.0.${BUILD_ID}" \
+             --copy-source &&\
+            cp target/${PROJECT_NAME}-1.0.${BUILD_ID}-standalone.jar /dist/${PROJECT_NAME}.zip &&\
+            rm -rf ~/.m2/repository &&\
+            rm -rf target
 
 ONBUILD RUN tree /dist/
 

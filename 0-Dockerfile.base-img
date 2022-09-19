@@ -2,38 +2,78 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/ubuntu:20.04
+FROM amazon/aws-lambda-provided:al2
 
 WORKDIR /root
 ENV DEBIAN_FRONTEND noninteractive
 
 SHELL ["/bin/bash", "-c"]
 
-RUN groupadd --gid 2024 build &&\
-    adduser --system --gid 2024 --uid 2025 build &&\
-    groupadd --gid 999 docker &&\
-    usermod -aG docker build
+ENV PATH $PATH:/usr/sbin
 
-RUN ln -fs /usr/share/zoneinfo/Europe/Vienna  /etc/localtime
+COPY cert cert
+RUN update-ca-trust force-enable &&\
+    cp cert/* /etc/pki/ca-trust/source/anchors/ &&\
+    update-ca-trust extract 
+   
+RUN export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+    
+ENV NO_PROXY="*.amazonlinux.com"
+RUN yum update -y --disableplugin=subscription-manager && \
+    yum clean all && \
+    rm -rf /var/cache/yum/ /var/tmp/* /tmp/* /var/tmp/.???* /tmp/.???*
 
-RUN apt-get update &&\
-    apt-get install -y unzip \
-                       tree \
-                       zip \
+
+RUN export REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/RTrustRootCA01.crt
+
+ENV YUM_OPTS "--setopt=skip_missing_names_on_install=False"
+
+RUN set -e &&\
+    yum ${YUM_OPTS} install -y yum-utils \
+                       amazon-linux-extras \
+                       shadow-utils \
+                       unzip \
                        jq \
-                       gpg \
+                       openssh-clients \
+                       zip \
                        git \
-                       ssh \
+                       tree \
                        vim \
-                       uuid-runtime \
-                       gettext-base \
+                       uuid \
+		       gettext \
                        python3-pip \
+                       curl \
                        ca-certificates \
-                       curl &&\
-    apt-get clean
+                       tzdata \
+                       tar \
+                       xz \
+                       openssl11
 
-COPY cert/*  /usr/local/share/ca-certificates/
-RUN update-ca-certificates -v
+RUN ln -s /usr/bin/openssl11 /usr/bin/openssl
+
+RUN groupadd --gid 1033 build &&\
+    adduser --gid 1033 --uid 1034 build &&\
+    adduser --gid 1033 --uid 1035 jenkins
+ 
+USER build
+RUN id 
+USER root
+
+RUN mkdir -p /home/jenkins
+RUN mkdir -p /dist
+
+RUN chown build:build /home/build -R &&\
+    chown build:build /home/jenkins -R &&\
+    chown build:build /dist -R 
+
+
+
+RUN date
+
+ENV TZ "Europe/Vienna"
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN date 
 
 
 RUN pip3 install --upgrade \
@@ -41,12 +81,14 @@ RUN pip3 install --upgrade \
           jinja2 \
           boto \
           boto3 \
+          pyyaml \
           docker-py \
           botocore \
           elasticsearch \
           aws-requests-auth \
           psycopg2-binary \
           yq \
+          pyyaml \
           psycopg2-binary
 
 RUN set -e &&\
@@ -54,10 +96,23 @@ RUN set -e &&\
     unzip -qq awscliv2.zip &&\
     ./aws/install
 
-RUN aws --version
+RUN set -e &&\
+    aws --version
+
+RUN set -e &&\
+    curl -L -o /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.13.5/yq_linux_amd64 &&\
+    chmod +x /usr/bin/yq &&\
+    yq --version
+
+RUN set -e &&\
+    curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install &&\
+    chmod +x install &&\
+    ./install
 
 COPY ext/ansible.cfg /etc/ansible/ansible.cfg
+COPY ext/ansible.cfg /dist/ansible.cfg
 COPY ext/gitconfig /home/build/.gitconfig
+
 RUN set -e &&\
     mkdir -p /home/build/.ssh &&\
     chown build:build -R /home/build/.ssh &&\
@@ -68,7 +123,12 @@ RUN set -e &&\
     chmod +x install &&\
     ./install
 
+COPY --chown=build:build ext/ssh-config  /home/build/.ssh/config
 
+RUN chmod 700 /home/build/.ssh/config
+
+ENTRYPOINT []
+
+RUN chown build:build /home/build -R
 WORKDIR /home/build
 USER build
-

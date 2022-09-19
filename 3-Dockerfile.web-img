@@ -6,31 +6,26 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
 
 USER root
 
-RUN curl -k -q -o google-chrome-stable_current_amd64.deb  https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb &&\
-    apt-get install -y ./google-chrome-stable_current_amd64.deb
+RUN set -e &&\
+    yum install -y chromium \
+                   chromedriver \
+                   procps-ng \
+                   ImageMagick
 
-# install chromedriver
-RUN apt-get install -yqq unzip
+RUN find /usr -name chromium
+RUN find /usr -name chromedriver
 
-# install imagemagick
-RUN apt install -yqq imagemagick
-
-RUN LATEST_CRHOMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) &&\
-    curl -k -q -o /tmp/chromedriver.zip "http://chromedriver.storage.googleapis.com/${LATEST_CRHOMEDRIVER_VERSION}/chromedriver_linux64.zip" &&\
-    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/  &&\
-	rm -rf /tmp/chromedriver.zip
-
-ENV CHROMEDRIVER /usr/local/bin/chromedriver
-
-RUN npm install -g shadow-cljs@2.11.5 karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
+ENV CHROMEDRIVER /usr/bin/chromedriver
+ENV CHROME_BIN /usr/bin/chromium-browser
 
 # set display port to avoid crash
 ENV DISPLAY=:99
+
+
+RUN npm install --location=global shadow-cljs karma karma-cljs-test karma-chrome-launcher karma-junit-reporter
 
 USER build
 ENV PATH $PATH:"$GRAALVM_HOME/languages/js/bin"
 
 RUN id && pwd && \
      ls -la
-
-

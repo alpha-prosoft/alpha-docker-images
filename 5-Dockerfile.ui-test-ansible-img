@@ -2,15 +2,33 @@ ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
+FROM amazon/aws-lambda-java:11
 
-ONBUILD ARG BUILD_ID 
-ONBUILD ENV BUILD_ID ${BUILD_ID}
+ENV PROJECT_NAME ${PROJECT_NAME}
 
-ONBUILD ARG PROJECT_NAME 
-ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 
-ONBUILD RUN echo "Building ${PROJECT_NAME}"
+COPY cert/*  /etc/pki/ca-trust/source/anchors/
+RUN update-ca-trust extract
+
+RUN set -e &&\
+    yum install -y amazon-linux-extras &&\
+    amazon-linux-extras enable epel &&\
+    yum clean metadata &&\
+    yum install -y epel-release &&\
+    yum list chromium &&\
+    yum ${YUM_OPTS} install -y chromium chromedriver procps-ng unzip &&\
+    yum clean all
+
+
+RUN find /usr -name chromium
+RUN find /usr -name chromedriver
+
+RUN ln -s /usr/bin/chromedriver /var/task/chromedriver
+
+ENV DISPLAY=:99
+
+RUN find /usr -name "*chrom*"
+RUN /usr/bin/chromium-browser --no-sandbox --headless
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 
 ONBUILD ARG ANSIBLE_LOG_LEVEL
