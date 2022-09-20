@@ -34,7 +34,7 @@ ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
 ONBUILD COPY --chown=build:build www www
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1035,gid=1034,dst=/home/build/.m2/settings.xml set -e &&\
               clojure -M:test:runner &&\
               shadow-cljs release app &&\
               mkdir -p resources/public/ &&\
