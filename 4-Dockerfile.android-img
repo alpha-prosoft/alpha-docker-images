@@ -46,7 +46,7 @@ RUN set -e \
 
 ENV PATH $PATH:/opt/graalvm/languages/js/bin
 
-RUN npm i -g cordova
+RUN npm install --location=global cordova
 RUN npm install --location=global appcenter-cli
 
 RUN yum install -y java-1.8.0-openjdk

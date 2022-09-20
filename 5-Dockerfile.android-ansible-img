@@ -46,7 +46,7 @@ RUN set -e \
 
 ENV PATH $PATH:/opt/graalvm/languages/js/bin
 
-RUN npm i -g cordova
+RUN npm install --location=global cordova
 RUN npm install --location=global appcenter-cli
 
 RUN yum install -y java-1.8.0-openjdk
@@ -67,7 +67,7 @@ ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
 ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=build,gid=build,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1034,gid=1035,dst=/home/build/.gitcookie set -ex &&\
   if [[ -f "ansible/build/requirements.yml" ]]; then \
     ansible-galaxy install -vvvv --force --roles-path ansible/build/roles --keep-scm-meta -r ansible/build/requirements.yml; \
   fi &&\
