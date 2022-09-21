@@ -1,9 +1,7 @@
-# syntax=docker/dockerfile:experimental
-ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/web-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/web-img:local-build
 
 # Onbuild part
 ONBUILD ARG PROJECT_NAME

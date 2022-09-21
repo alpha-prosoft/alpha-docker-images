@@ -1,9 +1,7 @@
-# syntax=docker/dockerfile:experimental
-ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/web-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/web-img:local-build
 
 # Onbuild part
 ONBUILD ARG PROJECT_NAME
@@ -28,7 +26,7 @@ ONBUILD RUN cat deps.edn
 
 ONBUILD RUN mkdir -p /dist/s3
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1035,gid=1034,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
              shadow-cljs classpath
 
 ONBUILD COPY --chown=build:build resources resources
@@ -36,7 +34,7 @@ ONBUILD COPY --chown=build:build src src
 ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1035,gid=1034,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
               clojure -M:test:runner &&\
               shadow-cljs -A:dev release devcards &&\
               cp -r resources/public/* /dist/s3/ &&\
@@ -53,6 +51,9 @@ ONBUILD RUN ls -la /dist
 
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
 
+ONBUILD ARG BUILD_ID 
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+
 ONBUILD ARG ANSIBLE_LOG_LEVEL
 ONBUILD ENV ANSIBLE_LOG_LEVEL ${ANSIBLE_LOG_LEVEL}
 
@@ -61,7 +62,7 @@ ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
 ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1035,gid=1034,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1034,gid=1033,dst=/home/build/.gitcookie set -ex &&\
   ls -la && \
   id && \
   pwd && \

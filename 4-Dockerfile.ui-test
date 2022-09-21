@@ -1,8 +1,7 @@
-ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
 RUN id && pwd && \
      ls -la

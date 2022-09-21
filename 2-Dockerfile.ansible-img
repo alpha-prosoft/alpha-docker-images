@@ -1,17 +1,16 @@
-ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b${BUILD_ID}
-
-ONBUILD ARG BUILD_ID 
-ONBUILD ENV BUILD_ID ${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
 ONBUILD ARG PROJECT_NAME 
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 
 ONBUILD RUN echo "Building ${PROJECT_NAME}"
 # BUILDING -> Edit after this mark and do not remove this mark. Used for gen 4-*
+
+ONBUILD ARG BUILD_ID 
+ONBUILD ENV BUILD_ID ${BUILD_ID}
 
 ONBUILD ARG ANSIBLE_LOG_LEVEL
 ONBUILD ENV ANSIBLE_LOG_LEVEL ${ANSIBLE_LOG_LEVEL}
@@ -21,7 +20,7 @@ ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
 ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1035,gid=1034,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1034,gid=1033,dst=/home/build/.gitcookie set -ex &&\
   ls -la && \
   id && \
   pwd && \

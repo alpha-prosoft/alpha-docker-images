@@ -1,8 +1,7 @@
-ARG BUILD_ID
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:local-build
 
 USER root
 
@@ -31,7 +30,7 @@ RUN set -e &&\
 RUN pwd &&\
     ls -la graphviz-2.50.0/cmd/dot
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:b${BUILD_ID}
+FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:local-build
 
 COPY --from=0 /home/build/graphviz-2.50.0/cmd/dot/dot_static /home/build/dot_static
 COPY --from=0 /usr/lib64/libexpat.so.1 /home/build/lib/libexpat.so.1
