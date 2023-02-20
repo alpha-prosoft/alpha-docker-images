@@ -50,4 +50,19 @@ RUN npm install --location=global appcenter-cli
 RUN chown build:build -R /home/build/.android
 RUN chown build:build -R /usr/local/android-sdk
 
+
+ONBUILD ARG PROJECT_NAME
+ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
+
+ONBUILD ARG BUILD_ID
+ONBUILD ENV BUILD_ID ${BUILD_ID}
+
+ONBUILD ARG CORDOVA_PLATFORMS="android"
+ONBUILD ENV CORDOVA_PLATFORMS ${CORDOVA_PLATFORMS}
+
+ONBUILD COPY --chown=build:build config.xml config.xml
+ONBUILD RUN for i in ${CORDOVA_PLATFORMS}; do  \
+              cordova platform add $i; \
+            done
+
 USER build
