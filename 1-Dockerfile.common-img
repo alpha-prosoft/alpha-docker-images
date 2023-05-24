@@ -98,14 +98,15 @@ RUN mkdir /tmp/graalvm/ &&\
 
 # Install <maven> 
 
+ENV MAVEN_VERSION 3.9.5
 RUN set -e &&\
   mkdir -p /opt/maven &&\
   cd /opt/maven &&\
-  curl -OL "https://dlcdn.apache.org/maven/maven-3/3.9.1/binaries/apache-maven-3.9.1-bin.tar.gz" &&\
-  tar xzf "apache-maven-3.9.1-bin.tar.gz" &&\
-  rm "apache-maven-3.9.1-bin.tar.gz"
+  curl -OL "https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz" &&\
+  tar xvf "apache-maven-${MAVEN_VERSION}-bin.tar.gz" &&\
+  rm "apache-maven-${MAVEN_VERSION}-bin.tar.gz"
 
-ENV MAVEN_HOME "/opt/maven/apache-maven-3.9.1"
+ENV MAVEN_HOME "/opt/maven/apache-maven-${MAVEN_VERSION}"
 
 ENV PATH=$MAVEN_HOME/bin:$PATH
 

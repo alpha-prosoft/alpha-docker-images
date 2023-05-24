@@ -1,7 +1,7 @@
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM amazon/aws-lambda-provided:al2
+FROM library/amazonlinux:2
 
 WORKDIR /root
 ENV DEBIAN_FRONTEND noninteractive
@@ -47,6 +47,9 @@ RUN set -e &&\
                        tar \
                        xz \
                        openssl11
+
+RUN set -e &&\
+    amazon-linux-extras install python3.8
 
 RUN ln -s /usr/bin/openssl11 /usr/bin/openssl
 
