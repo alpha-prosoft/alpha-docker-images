@@ -94,6 +94,12 @@ RUN pip3 install --upgrade \
           yq \
           pyyaml \
           psycopg2-binary
+
+ENV PATH $PATH:/home/build/.local/bin
+
+RUN set -e && \
+    ansible --version
+
 USER root 
 
 RUN set -e &&\
