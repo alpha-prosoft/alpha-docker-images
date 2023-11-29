@@ -41,6 +41,7 @@ RUN set -e &&\
                        uuid \
 		       gettext \
                        python3-pip \
+                       python3-wheel \
                        curl \
                        ca-certificates \
                        tzdata \
@@ -78,6 +79,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN date 
 
 
+USER build
 RUN pip3 install --upgrade \
           ansible \
           jinja2 \
@@ -92,6 +94,7 @@ RUN pip3 install --upgrade \
           yq \
           pyyaml \
           psycopg2-binary
+USER root 
 
 RUN set -e &&\
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
