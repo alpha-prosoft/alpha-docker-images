@@ -12,18 +12,12 @@ ONBUILD ENV DEPLOY_TARGET ${DEPLOY_TARGET}
 COPY --chown=build:build ext/deps.edn /home/build/.clojure/deps.edn
 COPY --chown=build:build ext/DEV.edn /home/build/.clojure/DEV.edn
 COPY --chown=build:build ext/PROD.edn /home/build/.clojure/PROD.edn
-
 COPY --chown=build:build ext/merge.clj merge.clj
 
-
 ONBUILD COPY --chown=build:build shadow-cljs.edn shadow-cljs.edn
-
 ONBUILD COPY --chown=build:build deps.edn deps-temp.edn
 
-ONBUILD RUN clj -Sdeps '{}' merge.clj
-ONBUILD RUN cat deps.edn 
-
-
+ONBUILD RUN clojure -Sdeps '{}' merge.clj
 ONBUILD RUN mkdir -p /dist/s3
 
 ONBUILD COPY --chown=build:build resources resources
@@ -33,6 +27,8 @@ ONBUILD COPY --chown=build:build api api
 ONBUILD COPY --chown=build:build www www
 
 ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
+              cat deps.edn &&\
+              clojure -Stree &&\
               clojure -M:test:runner &&\
               clojure -M:shadow-cljs release app &&\
               mkdir -p resources/public/ &&\

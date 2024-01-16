@@ -119,9 +119,9 @@ RUN set -e &&\
 
 # Install clojure
 RUN set -e &&\
-    curl -L https://download.clojure.org/install/linux-install-1.11.1.1149.sh -o clojure-linux-install.sh &&\
-    chmod +x clojure-linux-install.sh &&\
-    ./clojure-linux-install.sh
+    curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh &&\
+    chmod +x linux-install.sh &&\
+    ./linux-install.sh
 
 RUN set -e &&\
     curl -o /usr/bin/lein  https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein &&\
