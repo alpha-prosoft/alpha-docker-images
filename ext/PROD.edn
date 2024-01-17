@@ -1,6 +1,6 @@
 {:mvn/repos
  {"central" {:url "https://repo1.maven.org/maven2/"}
   "clojars" {:url "https://clojars.org/repo"}
-  "prod"    {:url "https://pkgs.dev.azure.com/allora-it/prod/_packaging/prod/maven/v1"}}
+  "prod"    {:url "https://pkgs.dev.azure.com/allora-it/prod/_packaging/prod/maven/v1"}}}
 
 
