@@ -5,7 +5,7 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
 USER root
 
-RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.3.3-bin.zip &&\
+RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.6.2-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
     rm /tmp/gradle.zip &&\
     mv /opt/gradle/gradle-* /opt/gradle/gradle-latest
@@ -19,10 +19,16 @@ RUN set -e \
     gradle --version
 
 ENV SDK_URL "https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip" 
-ENV ANDROID_SDK_ROOT "/usr/local/android-sdk" 
-ENV ANDROID_VERSION 28 
-ENV ANDROID_BUILD_TOOLS_VERSION 30.0.3
 
+ENV ANDROID_SDK_ROOT "/usr/local/android-sdk" 
+ENV ANDROID_HOME $ANDROID_SDK_ROOT
+
+ENV ANDROID_VERSION 24 
+ENV ANDROID_BUILD_TOOLS_VERSION 33.0.2
+
+ENV PATH $ANDROID_SDK_ROOT/tools:$PATH
+ENV PATH $ANDROID_SDK_ROOT/platform-tools:$PATH
+ 
 # Download Android SDK
 RUN mkdir -p "$ANDROID_SDK_ROOT" .android \
     && cd "$ANDROID_SDK_ROOT" \
