@@ -97,11 +97,11 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/
             ls -la /dist/release-libs/ &&\
             tree /dist | grep -v "class" &&\
             echo "Preparing extensions" &&\
-            if [[ -f /dist/deploy/files/reflectconfig.json ]]; \
-            then jq -s "[.[][]]" \
-              /dist/deploy/files/reflectconfig.json \
-              /dist/reflectconfig.json \
-              > /dist/reflectconfig.tmp ; \
+            if [[ -f resources/reflectconfig.json ]]; then \
+              jq -s "[.[][]]" \
+                  resources/reflectconfig.json \
+                  /dist/reflectconfig.json \
+                  > /dist/reflectconfig.tmp ; \
               mv /dist/reflectconfig.tmp /dist/reflectconfig.json; \
               echo "Merged extension reflectconfig.json"; fi &&\
             cat /dist/reflectconfig.json &&\
