@@ -40,14 +40,16 @@ RUN set -e &&\
                        vim \
                        uuid \
 		       gettext \
-                       python3-pip \
-                       python3-wheel \
                        curl \
                        ca-certificates \
                        tzdata \
                        tar \
                        xz \
-                       openssl11
+                       openssl11 \
+                       openssl11-devel \
+                       libffi-devel \
+                       gcc bzip2-devel libffi-devel gzip make
+
 
 RUN set -e &&\
     amazon-linux-extras install python3.8
@@ -78,10 +80,23 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN date 
 
+ENV PYTHON_VERSION 3.10.3
 RUN set -e &&\
-    rm -f /usr/bin/python3 &&\
-    ln -s /usr/bin/python3.8 /usr/bin/python3
-
+    curl https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz  -o  python-$PYTHON_VERSION.tgz &&\
+    tar xzf python-$PYTHON_VERSION.tgz &&\
+    rm -rf python-$PYTHON_VERSION.tgz &&\
+    cd Python-$PYTHON_VERSION &&\
+    ./configure --enable-optimizations &&\
+    make altinstall &&\
+    ln -s /usr/local/bin/python3.10 /usr/local/bin/python3 &&\
+    ln -s /usr/local/bin/python3.10 /usr/bin/python3 &&\
+    ln -s /usr/local/bin/pip3.10 /usr/local/bin/pip3 &&\
+    cd .. &&\
+    rm -rf Python-$PYTHON_VERSION &&\
+    echo "### Checking versions" &&\
+    python3 --version &&\
+    pip3 --version
+ 
 USER build
 RUN pip3 install --upgrade \
           ansible \
@@ -103,7 +118,21 @@ ENV PATH $PATH:/home/build/.local/bin
 RUN set -e && \
     ansible --version
 
+# Update all ansible collections
+#ENV ANSIBLE_COLLECTIONS_PATH /home/build/.local/lib/python3.8/site-packages/ansible_collections
+
+#RUN set -e && \
+#    ansible-galaxy collection list \
+#        | grep -Ev "^$"  \
+#        | grep -v 'Collection' \
+#        | grep -Ev '^#.*$' \
+#        | grep -vE '^[- ]+$' \
+#        | awk '{print $1}' \
+#        | xargs -I {} ansible-galaxy collection install -U {}
+
 USER root 
+
+
 
 RUN set -e &&\
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" &&\
