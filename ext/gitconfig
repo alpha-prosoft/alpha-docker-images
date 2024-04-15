@@ -5,6 +5,6 @@
 [core]
     editor = vim
 [credential]
-    username = jenkins
+    username = build
 [http]
     cookieFile = /home/build/.gitcookie

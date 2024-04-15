@@ -12,5 +12,5 @@ for i in $(ls 4*); do
   touch $file
   
   cp "4-Dockerfile.${i##*.}" $file
-  cat 2-Dockerfile.ansible-img | tail +${line_number} >> ${file}; 
+  cat 2-Dockerfile.ansible-img | tail -n +${line_number} >> ${file}; 
 done

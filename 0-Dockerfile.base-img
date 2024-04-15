@@ -56,20 +56,17 @@ RUN set -e &&\
 
 RUN ln -s /usr/bin/openssl11 /usr/bin/openssl
 
-RUN groupadd --gid 1033 build &&\
-    adduser --gid 1033 --uid 1034 build &&\
-    adduser --gid 1033 --uid 1035 jenkins
+RUN groupadd --gid 2024 build &&\
+    adduser --gid 2024 --uid 2025 build
  
 USER build
 RUN id 
 USER root
 
-RUN mkdir -p /home/jenkins
 RUN mkdir -p /dist
 
 RUN chown build:build /home/build -R &&\
-    chown build:build /home/jenkins -R &&\
-    chown build:build /dist -R 
+    chown build:build /dist -R
 
 
 

@@ -60,9 +60,7 @@ RUN set -e &&\
                        curl \
                        rlwrap 
 
-RUN usermod -aG docker jenkins &&\
-    usermod -aG input jenkins &&\
-    usermod -aG docker build &&\
+RUN usermod -aG docker build &&\
     usermod -aG input build
 
 ENV GRAALVM_VERSION "22.1.0"
