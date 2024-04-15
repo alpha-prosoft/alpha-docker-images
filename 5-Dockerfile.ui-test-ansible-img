@@ -41,7 +41,7 @@ ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
 ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1034,gid=1033,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
   ls -la && \
   id && \
   pwd && \

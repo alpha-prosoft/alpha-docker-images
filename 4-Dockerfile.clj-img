@@ -54,7 +54,7 @@ ONBUILD COPY --chown=build:build "${ROOT_DIR_E}resources" resources
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test 
 COPY --chown=build:build ext/tests.edn tests.edn
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
             clojure merge.clj &&\
             cat deps.edn &&\
             clojure -Stree &&\

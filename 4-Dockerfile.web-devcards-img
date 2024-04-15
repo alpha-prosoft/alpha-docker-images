@@ -26,7 +26,7 @@ ONBUILD RUN cat deps.edn
 
 ONBUILD RUN mkdir -p /dist/s3
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
              shadow-cljs classpath
 
 ONBUILD COPY --chown=build:build resources resources
@@ -34,7 +34,7 @@ ONBUILD COPY --chown=build:build src src
 ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
               clojure -M:test:runner &&\
               shadow-cljs -A:dev release devcards &&\
               cp -r resources/public/* /dist/s3/ &&\

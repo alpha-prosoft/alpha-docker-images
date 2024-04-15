@@ -26,7 +26,7 @@ ONBUILD COPY --chown=build:build lib lib
 ONBUILD COPY --chown=build:build api api
 ONBUILD COPY --chown=build:build www www
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=1034,gid=1033,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
               cat deps.edn &&\
               clojure -Stree &&\
               clojure -M:test:runner &&\
@@ -59,7 +59,7 @@ ONBUILD ENV AWS_REGION ${AWS_REGION}
 
 
 ONBUILD COPY --chown=build:build ansible ansible
-ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=1034,gid=1033,dst=/home/build/.gitcookie set -ex &&\
+ONBUILD RUN  --mount=type=secret,id=gitcookie,mode=600,uid=2025,gid=2024,dst=/home/build/.gitcookie set -ex &&\
   ls -la && \
   id && \
   pwd && \
