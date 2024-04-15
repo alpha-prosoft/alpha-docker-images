@@ -42,6 +42,7 @@ COPY --chown=build:build ext/deps.edn /home/build/.clojure/deps.edn
 COPY --chown=build:build ext/DEV.edn /home/build/.clojure/DEV.edn
 COPY --chown=build:build ext/PROD.edn /home/build/.clojure/PROD.edn
 
+COPY --chown=build:build ext/build.clj /home/build/build.clj
 
 ONBUILD RUN sed -i 's/${MAIN_CLASS}/'${MAIN_CLASS}'/g' /home/build/.clojure/deps.edn
 ONBUILD RUN cat /home/build/.clojure/deps.edn
@@ -53,15 +54,15 @@ ONBUILD COPY --chown=build:build "${ROOT_DIR_E}resources" resources
 ONBUILD COPY --chown=build:build "${ROOT_DIR_E}test" test 
 COPY --chown=build:build ext/tests.edn tests.edn
 
-ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/home/build/.m2/settings.xml set -e &&\
+ONBUILD RUN set -e &&\
             clojure merge.clj &&\
-            cat deps.edn &&\
             clojure -Stree &&\
+            cat deps.edn &&\
             set -e && clojure -M:test:runner &&\
             set -e && clojure -M:test:unit &&\
             echo "Running integration tests" &&\
-            curl -s http://169.254.169.254/latest/dynamic/instance-identity/document -v &&\
-            export AWS_DEFAULT_REGION="$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)" &&\
+            SESSION_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600") &&\
+            export AWS_DEFAULT_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $SESSION_TOKEN" http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region) &&\
             TARGET_ACCOUNT_ID="$(aws sts get-caller-identity | jq -r '.Account')" &&\
             cred=$(aws sts assume-role \
                 --role-arn arn:aws:iam::${TARGET_ACCOUNT_ID}:role/PipelineRole \
@@ -81,14 +82,20 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
             if [[ -d "api" ]]; then \
               cd api; \
               if [[ -f "deps.edn" ]]; then \
-                clojure -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
-                  -m cambada.jar \
-                  --app-version "1.0.${BUILD_ID}" \
-                  --app-artifact-id "${PROJECT_NAME}" \
-                  --app-group-id "${ARTIFACT_ORG}" \
-                  --copy-source \
-                  -o /dist/release-libs/; \
-                cp pom.xml "/dist/release-libs/${PROJECT_NAME}-1.0.${BUILD_ID}.jar.pom.xml"; \
+                out_dir=$(mktemp -d) &&\
+                rm -rf pom.xml &&\
+                rm -rf .cpcache &&\
+                echo "Compiling api java jar!" &&\
+                cp ../build.clj . &&\
+                clojure -T:build jar \
+                  :main "${MAIN_CLASS}" \
+                  :group-id "${ARTIFACT_ORG}" \
+                  :artifact-id "${PROJECT_NAME}" \
+                  :version '"'1.0.${BUILD_ID}'"' \
+                  :lms true \
+                  :out '"'$out_dir'"' &&\
+                cp pom.xml /dist/release-libs/${PROJECT_NAME}-1.0.${BUILD_ID}.jar.pom.xml; \
+                cp $out_dir/${PROJECT_NAME}-1.0.${BUILD_ID}.jar /dist/release-libs/${PROJECT_NAME}-1.0.${BUILD_ID}.jar; \
                fi \
             fi &&\
             cd /home/build &&\
@@ -96,17 +103,24 @@ ONBUILD RUN --mount=type=secret,id=settings.xml,mode=600,uid=2025,gid=2024,dst=/
             ls -la /dist/release-libs/ &&\
             cat deps.edn &&\
             echo "Building" &&\
-            clj -Sdeps '{:deps {luchiniatwork/cambada {:mvn/version "1.0.2"}}}' \
-             -A:uberjar \
-             -m "cambada.uberjar" \
-             --main "${MAIN_CLASS}" \
-             --app-group-id "com.rbinternational.glms" \
-             --app-artifact-id "${PROJECT_NAME}" \
-             --app-version "1.0.${BUILD_ID}" \
-             --copy-source &&\
-            cp target/${PROJECT_NAME}-1.0.${BUILD_ID}-standalone.jar /dist/${PROJECT_NAME}.zip &&\
+            out_dir=$(mktemp -d) &&\
+            rm -rf pom.xml &&\
+            rm -rf .cpcache &&\
+            echo "Compiling main java uberjar!" &&\
+            clojure -T:build uber \
+             :main "${MAIN_CLASS}" \
+             :group-id "${ARTIFACT_ORG}" \
+             :artifact-id "${PROJECT_NAME}-standalone" \
+             :version '"'1.0.${BUILD_ID}'"' \
+             :lms true \
+             :out '"'$out_dir'"' &&\
+            ls -la /dist/release-libs &&\
+            cp pom.xml /dist/release-libs/${PROJECT_NAME}-standalone-1.0.${BUILD_ID}.jar.pom.xml &&\
+            cp $out_dir/${PROJECT_NAME}-standalone-1.0.${BUILD_ID}-standalone.jar /dist/release-libs/${PROJECT_NAME}-standalone-1.0.${BUILD_ID}.jar &&\
+            cp $out_dir/${PROJECT_NAME}-standalone-1.0.${BUILD_ID}-standalone.jar /dist/${PROJECT_NAME}.zip &&\
             rm -rf ~/.m2/repository &&\
             rm -rf target
+
 
 ONBUILD RUN tree /dist/
 

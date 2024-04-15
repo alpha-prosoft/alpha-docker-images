@@ -24,8 +24,9 @@ echo "We are running inside ${work_dir}"
 echo "Setting up ansible directories"
 mkdir -p $work_dir/group_vars
 
-region=eu-west-1
-export AWS_DEFAULT_REGION=${region}
+SESSION_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600") &&\
+export AWS_DEFAULT_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $SESSION_TOKEN" \
+                                     http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region) &&\
 
 echo "Assuming role in target account"
 SESSION=$(aws sts assume-role \
@@ -34,13 +35,19 @@ SESSION=$(aws sts assume-role \
             --endpoint https://sts.${region}.amazonaws.com \
             --region ${AWS_DEFAULT_REGION})
 
-CURRENT_ROLE=$(curl http://169.254.169.254/latest/meta-data/iam/security-credentials)
-curl -o security-credentials.json http://169.254.169.254/latest/meta-data/iam/security-credentials/${CURRENT_ROLE}/
+CURRENT_ROLE=$(curl -s -H "X-aws-ec2-metadata-token: $SESSION_TOKEN"
+                   http://169.254.169.254/latest/meta-data/iam/security-credentials)
+
+curl -o security-credentials.json \
+     -s -H "X-aws-ec2-metadata-token: $SESSION_TOKEN"  \
+      http://169.254.169.254/latest/meta-data/iam/security-credentials/${CURRENT_ROLE}/
 
 export PIPELINE_AWS_ACCESS_KEY_ID=$(cat security-credentials.json | jq -r '.AccessKeyId')
 export PIPELINE_AWS_SECRET_ACCESS_KEY=$(cat security-credentials.json | jq -r '.SecretAccessKey')
 export PIPELINE_AWS_SESSION_TOKEN=$(cat security-credentials.json | jq -r '.Token')
-export PIPELINE_ACCOUNT_ID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.accountId')
+export PIPELINE_ACCOUNT_ID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document  \
+                                  -s -H "X-aws-ec2-metadata-token: $SESSION_TOKEN"  \
+	                            | jq -r '.accountId')
 
 export AWS_ACCESS_KEY_ID=$(echo $SESSION | jq -r '.Credentials.AccessKeyId')
 export AWS_SECRET_ACCESS_KEY=$(echo $SESSION | jq -r '.Credentials.SecretAccessKey')
