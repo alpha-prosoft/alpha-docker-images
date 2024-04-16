@@ -86,7 +86,8 @@ ONBUILD RUN set -e &&\
                 rm -rf pom.xml &&\
                 rm -rf .cpcache &&\
                 echo "Compiling api java jar!" &&\
-                cp ../build.clj . &&\
+                cp /home/build/build.clj . &&\
+                clojure -T:build clean &&\
                 clojure -T:build jar \
                   :main "${MAIN_CLASS}" \
                   :group-id "${ARTIFACT_ORG}" \
@@ -107,6 +108,7 @@ ONBUILD RUN set -e &&\
             rm -rf pom.xml &&\
             rm -rf .cpcache &&\
             echo "Compiling main java uberjar!" &&\
+            clojure -T:build clean &&\
             clojure -T:build uber \
              :main "${MAIN_CLASS}" \
              :group-id "${ARTIFACT_ORG}" \

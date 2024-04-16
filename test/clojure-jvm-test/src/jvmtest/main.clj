@@ -1,9 +1,9 @@
-(ns build.main
+(ns jvmtest.main
   (:gen-class)
   (:require [clojure.data :as data]
             [malli.core :as m]
             [malli.error :as me]
-            [build.jwt :as jwt]
+            [jvmtest.jwt :as jwt]
             [edd.db :as edd-db]
             [iso-7064.core :as iso]
             [next.jdbc.connection :as jdbc-conn]

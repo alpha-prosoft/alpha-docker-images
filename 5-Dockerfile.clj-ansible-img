@@ -93,7 +93,8 @@ ONBUILD RUN set -e &&\
                 echo "END API deps.edn" &&\
                 out_dir=$(mktemp -d) &&\
                 echo "Compiling api jar!" &&\
-                cp ../build.clj . &&\
+                cp /home/build/build.clj . &&\
+                clojure -T:build clean &&\
                 clojure -T:build jar \
                   :main "${MAIN_CLASS}" \
                   :group-id "${ARTIFACT_ORG}" \
@@ -120,9 +121,10 @@ ONBUILD RUN set -e &&\
             cat /dist/reflectconfig.json &&\
             cat deps.edn &&\
             echo "Building" &&\
-            export INIT_PACKAGES="${MAIN_CLASS%%.*},java.rmi.server,java_http_clj,glms_util,import,batch,aws,jdk,javax,sdk,clj_aws_sign,ring,jsonista,camel_snake_kebab,lambda,clojure,next,org,com,ch,java,iso_7064,borkdude,edd,malli,${EXT_INIT_PACKAGES:-java}" &&\
+            export INIT_PACKAGES="${MAIN_CLASS%%.*},java_http_clj,glms_util,import,batch,aws,jdk,javax,sdk,clj_aws_sign,ring,jsonista,camel_snake_kebab,lambda,clojure,next,org,com,ch,java,iso_7064,borkdude,edd,malli,${EXT_INIT_PACKAGES:-java}" &&\
             out_dir=$(mktemp -d) &&\
             echo "Compiling main uberjar!" &&\
+            clojure -T:build clean &&\
             clojure -T:build uber \
              :main "${MAIN_CLASS}" \
              :group-id "${ARTIFACT_ORG}" \
@@ -142,6 +144,7 @@ ONBUILD RUN set -e &&\
                 -Dcom.zaxxer.hikari.useWeakReferences=false \
                 -Dclojure.tools.logging.factory=lambda.logging/slf4j-json-factory \
                 --enable-url-protocols=https \
+                -H:+UnlockExperimentalVMOptions \
                 -H:NumberOfThreads=16 \
                 -H:TraceClassInitialization=true \
                 -H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
@@ -156,14 +159,22 @@ ONBUILD RUN set -e &&\
                 --initialize-at-build-time=${INIT_PACKAGES},sun.rmi.server,sun.rmi.runtime,sun.rmi.runtime,sun.rmi.server,sun.rmi.server \
                 --trace-class-initialization=clojure.lang.Compiler \
                 --trace-class-initialization=clojure.lang.RT \
+                --trace-class-initialization=java.security.SecureRandom \
+                --trace-class-initialization=java.util.UUID\$Holder \
+                --trace-class-initialization=java.util.UUID \
+                --trace-object-instantiation=java.util.UUID \
+                --trace-object-instantiation=java.security.SecureRandom \
                 --initialize-at-run-time=org.httpkit.client \
+                --initialize-at-run-time=java.util.UUID\$Holder \
                 --initialize-at-run-time=org.postgresql.sspi.SSPIClient \
                 --initialize-at-run-time=org.httpkit.client.SslContextFactory \
                 --initialize-at-run-time=org.httpkit.client.HttpClient || echo "FAILED") &&\
              echo "RESP: $resp" &&\
              if [[ "$resp" == "FAILED" ]]; then cat /home/build/reports/traced_class_initialization*; exit 1; fi &&\
              tree &&\
+             echo "#### PRINTING TRACE INITALIZATIONS, THIS ARE NOT EXEPTIONS ######" &&\
              cat /home/build/reports/traced_class_initialization* &&\
+             echo "###############################################################" &&\
              echo "Packaging" &&\
              mv ${PROJECT_NAME} lambda_function &&\
              chmod +x lambda_function &&\

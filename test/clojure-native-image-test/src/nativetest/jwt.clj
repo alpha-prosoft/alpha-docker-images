@@ -1,4 +1,4 @@
-(ns build.jwt
+(ns nativetest.jwt
   (:require [lambda.jwt :as jwt]
             [lambda.util :as util]
             [clojure.data :refer [diff]]
