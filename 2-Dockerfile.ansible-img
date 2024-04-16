@@ -3,6 +3,20 @@ ARG DOCKER_ORG
 
 FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
+USER root
+RUN set -e &&\
+    echo "Overiding python version" &&\ 
+    rm -rf /usr/bin/python3* &&\ 
+    rm -rf /usr/local/bin/python3 &&\
+    rm -rf /usr/local/bin/pip3 &&\
+    ln -s /usr/local/bin/python3.10 /usr/local/bin/python3 &&\ 
+    ln -s /usr/local/bin/python3.10 /usr/bin/python3 &&\ 
+    ln -s /usr/local/bin/pip3.10 /usr/local/bin/pip3 &&\ 
+    echo "Checking python" &&\ 
+    ls -la /usr/bin/python3* 
+
+USER build
+
 ONBUILD ARG PROJECT_NAME 
 ONBUILD ENV PROJECT_NAME ${PROJECT_NAME}
 

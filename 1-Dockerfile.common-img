@@ -6,7 +6,7 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:local-build
 USER root
 
 RUN set -e &&\
-    yum ${YUM_OPTS} install -y unzip python3 expect libtool-ltdl-devel expat-devel &&\
+    yum ${YUM_OPTS} install -y unzip expect libtool-ltdl-devel expat-devel &&\
     yum groups mark install "Development Tools" &&\
     yum groups mark convert "Development Tools" &&\
     yum groupinstall -y "Development Tools"

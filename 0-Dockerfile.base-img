@@ -43,6 +43,7 @@ RUN set -e &&\
                        curl \
                        ca-certificates \
                        tzdata \
+                       python3 \
                        tar \
                        xz \
                        openssl11 \
@@ -50,9 +51,6 @@ RUN set -e &&\
                        libffi-devel \
                        gcc bzip2-devel libffi-devel gzip make
 
-
-RUN set -e &&\
-    amazon-linux-extras install python3.8
 
 RUN ln -s /usr/bin/openssl11 /usr/bin/openssl
 
@@ -85,16 +83,26 @@ RUN set -e &&\
     cd Python-$PYTHON_VERSION &&\
     ./configure --enable-optimizations &&\
     make altinstall &&\
+    echo "Ovveriding python version" &&\
+    rm -rf /usr/bin/python3* &&\
+    rm -rf /usr/local/bin/python3 &&\ 
+    rm -rf /usr/local/bin/pip3 &&\
     ln -s /usr/local/bin/python3.10 /usr/local/bin/python3 &&\
     ln -s /usr/local/bin/python3.10 /usr/bin/python3 &&\
     ln -s /usr/local/bin/pip3.10 /usr/local/bin/pip3 &&\
+    echo "Checking python" &&\
+    ls -la /usr/bin/python3* &&\
     cd .. &&\
-    rm -rf Python-$PYTHON_VERSION &&\
+    rm -rf Python-$PYTHON_VERSION
+
+ 
+USER build
+
+RUN set -e &&\
     echo "### Checking versions" &&\
     python3 --version &&\
     pip3 --version
- 
-USER build
+
 RUN pip3 install --upgrade \
           ansible \
           jinja2 \
