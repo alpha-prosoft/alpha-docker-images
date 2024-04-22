@@ -145,7 +145,7 @@ ONBUILD RUN set -e &&\
                 -Dclojure.tools.logging.factory=lambda.logging/slf4j-json-factory \
                 --enable-url-protocols=https \
                 -H:+UnlockExperimentalVMOptions \
-                -H:NumberOfThreads=16 \
+                -H:NumberOfThreads=8 \
                 -H:TraceClassInitialization=true \
                 -H:ReflectionConfigurationFiles=/dist/reflectconfig.json \
                 -H:+ReportExceptionStackTraces \
@@ -160,12 +160,10 @@ ONBUILD RUN set -e &&\
                 --trace-class-initialization=clojure.lang.Compiler \
                 --trace-class-initialization=clojure.lang.RT \
                 --trace-class-initialization=java.security.SecureRandom \
-                --trace-class-initialization=java.util.UUID\$Holder \
                 --trace-class-initialization=java.util.UUID \
                 --trace-object-instantiation=java.util.UUID \
                 --trace-object-instantiation=java.security.SecureRandom \
                 --initialize-at-run-time=org.httpkit.client \
-                --initialize-at-run-time=java.util.UUID\$Holder \
                 --initialize-at-run-time=org.postgresql.sspi.SSPIClient \
                 --initialize-at-run-time=org.httpkit.client.SslContextFactory \
                 --initialize-at-run-time=org.httpkit.client.HttpClient || echo "FAILED") &&\

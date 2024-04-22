@@ -69,7 +69,7 @@ RUN set -e &&\
     yum ${YUM_OPTS} install -y compat-libstdc++-33.x86_64 zlib-devel freetype-devel libstdc++.x86_64 gcc-c++ libstdc++-static
 
 
-RUN curl -o graal-vm.tar.gz -L https://download.oracle.com/graalvm/22/latest/graalvm-jdk-22_linux-x64_bin.tar.gz &&\
+RUN curl -o graal-vm.tar.gz -L https://download.oracle.com/graalvm/21/latest/graalvm-jdk-21_linux-x64_bin.tar.gz &&\
     tar -xf graal-vm.tar.gz -C /opt  &&\
     rm -rf graal-vm.tar.gz &&\
     ls -la /opt &&\

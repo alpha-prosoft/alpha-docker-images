@@ -29,6 +29,7 @@ ENV YUM_OPTS "--setopt=skip_missing_names_on_install=False"
 
 RUN set -e &&\
     yum ${YUM_OPTS} install -y yum-utils \
+                       sqlite-devel \
                        amazon-linux-extras \
                        shadow-utils \
                        unzip \
@@ -49,6 +50,7 @@ RUN set -e &&\
                        openssl11 \
                        openssl11-devel \
                        libffi-devel \
+                       sqlite-devel \
                        gcc bzip2-devel libffi-devel gzip make
 
 
