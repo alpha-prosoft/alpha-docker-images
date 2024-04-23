@@ -5,7 +5,7 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
 USER root
 
-RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.6.2-bin.zip &&\
+RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.6.4-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
     rm /tmp/gradle.zip &&\
     mv /opt/gradle/gradle-* /opt/gradle/gradle-latest
