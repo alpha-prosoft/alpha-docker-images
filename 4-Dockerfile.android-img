@@ -5,12 +5,10 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
 
 USER root
 
-RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-7.6.4-bin.zip &&\
+RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
     rm /tmp/gradle.zip &&\
     mv /opt/gradle/gradle-* /opt/gradle/gradle-latest
-
-
 
 ENV GRADLE_HOME /opt/gradle/gradle-latest
 ENV PATH $GRADLE_HOME/bin:$PATH
@@ -24,7 +22,7 @@ ENV ANDROID_SDK_ROOT "/usr/local/android-sdk"
 ENV ANDROID_HOME $ANDROID_SDK_ROOT
 
 ENV ANDROID_VERSION 24 
-ENV ANDROID_BUILD_TOOLS_VERSION 33.0.2
+ENV ANDROID_BUILD_TOOLS_VERSION 34.0.0
 
 ENV PATH $ANDROID_SDK_ROOT/tools:$PATH
 ENV PATH $ANDROID_SDK_ROOT/platform-tools:$PATH
