@@ -140,6 +140,7 @@ ONBUILD RUN set -e &&\
                 --no-fallback \
                 --enable-https \
                 --gc=G1 \
+                -J-Xss2m \
                 -J-Xmx24g \
                 -Dcom.zaxxer.hikari.useWeakReferences=false \
                 -Dclojure.tools.logging.factory=lambda.logging/slf4j-json-factory \

@@ -5,14 +5,14 @@ FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:local-build
 
 USER root
 
-RUN curl -o graal-vm.tar.gz -L https://download.oracle.com/graalvm/17/latest/graalvm-jdk-17_linux-x64_bin.tar.gz &&\
-    tar -xf graal-vm.tar.gz -C /opt  &&\
-    rm -rf graal-vm.tar.gz &&\
+RUN curl -o jdk.tar.gz -L https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz &&\
+    tar -xf jdk.tar.gz -C /opt  &&\
+    rm -rf jdk.tar.gz &&\
     ls -la /opt &&\
-    ln -s "/opt/$(basename /opt/graalvm*)" /opt/graalvm
+    ln -s "/opt/$(basename /opt/jdk*)" /opt/jdk
 
-ENV GRAALVM_HOME /opt/graalvm/
-ENV JAVA_HOME /opt/graalvm/
+ENV JAVA_HOME /opt/jdk/
+ENV PATH $JAVA_HOME/bin:$PATH
 
 RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
@@ -55,8 +55,6 @@ RUN set -e \
           "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
           "platforms;android-${ANDROID_VERSION}"
 
-ENV PATH $PATH:/opt/graalvm/languages/js/bin
-
 # Install <nodejs>
 RUN curl -kL https://nodejs.org/dist/v16.16.0/node-v16.16.0-linux-x64.tar.xz  -o  node-v16.16.0-linux-x64.tar.xz &&\
     tar -xf node-v16.16.0-linux-x64.tar.xz &&\
@@ -74,5 +72,7 @@ RUN npm install --location=global appcenter-cli
 
 RUN chown build:build -R /home/build/.android
 RUN chown build:build -R /usr/local/android-sdk
+
+RUN chown build:build -R /dist
 
 USER build
