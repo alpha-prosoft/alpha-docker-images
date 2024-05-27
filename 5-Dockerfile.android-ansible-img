@@ -1,9 +1,18 @@
 ARG DOCKER_URL
 ARG DOCKER_ORG
 
-FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:local-build
+FROM ${DOCKER_URL}/${DOCKER_ORG}/base-img:local-build
 
 USER root
+
+RUN curl -o graal-vm.tar.gz -L https://download.oracle.com/graalvm/17/latest/graalvm-jdk-17_linux-x64_bin.tar.gz &&\
+    tar -xf graal-vm.tar.gz -C /opt  &&\
+    rm -rf graal-vm.tar.gz &&\
+    ls -la /opt &&\
+    ln -s "/opt/$(basename /opt/graalvm*)" /opt/graalvm
+
+ENV GRAALVM_HOME /opt/graalvm/
+ENV JAVA_HOME /opt/graalvm/
 
 RUN curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.7-bin.zip &&\
     unzip -d /opt/gradle /tmp/gradle.zip &&\
@@ -47,6 +56,18 @@ RUN set -e \
           "platforms;android-${ANDROID_VERSION}"
 
 ENV PATH $PATH:/opt/graalvm/languages/js/bin
+
+# Install <nodejs>
+RUN curl -kL https://nodejs.org/dist/v16.16.0/node-v16.16.0-linux-x64.tar.xz  -o  node-v16.16.0-linux-x64.tar.xz &&\
+    tar -xf node-v16.16.0-linux-x64.tar.xz &&\
+    rm -rf node-v16.16.0-linux-x64.tar.xz &&\
+    mv node-v16.16.0-linux-x64 /opt/
+
+ENV PATH $PATH:/opt/node-v16.16.0-linux-x64/bin
+
+RUN node --version
+RUN npm --version 
+# </nodjs>
 
 RUN npm install --location=global cordova
 RUN npm install --location=global appcenter-cli

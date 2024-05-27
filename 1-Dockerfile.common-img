@@ -131,7 +131,7 @@ RUN curl -s https://raw.githubusercontent.com/borkdude/jet/master/install > jet.
 RUN set -e &&\
     yum ${YUM_OPTS} install -y git-extras
 
-# Install nodejs
+# Install <nodejs>
 RUN curl -kL https://nodejs.org/dist/v16.16.0/node-v16.16.0-linux-x64.tar.xz  -o  node-v16.16.0-linux-x64.tar.xz &&\
     tar -xf node-v16.16.0-linux-x64.tar.xz &&\
     rm -rf node-v16.16.0-linux-x64.tar.xz &&\
@@ -141,7 +141,7 @@ ENV PATH $PATH:/opt/node-v16.16.0-linux-x64/bin
 
 RUN node --version
 RUN npm --version 
-
+# </nodjs>
 
 COPY --chown=build:build ext/settings.xml /home/build/.m2/settings.xml
 
